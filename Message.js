@@ -35,73 +35,200 @@
  */
 const Hash = require("../util/hash");
 
+// Native NodeJS dependencies
+const assert = require("assert");
+
 /**
  * Maximum message size in bytes.
- * Disallow messages larger than 1 MiB (total all objects together including all frames).
+ * This setting is intended to disallow messages larger than 1 MiB (total all objects together including all frames).
  * @constant
  * @type {number}
  * @default
-*/
+ */
 const MAX_MESSAGE_SIZE = 1024 * 1024;
 
 /**
  * Maximum object data size in bytes.
- * Disallow objects with data larger than 64 KiB.
- * The full object will maximum be MAX_OBJECT_DATA_SIZE + OBJECT_FRAME_LENGTH + 256;
+ * This setting is intended to disallow objects larger than 64 KiB.
+ * The full object will maximum be MAX_OBJECT_DATA_SIZE + OBJECT_FRAME_LENGTH + KEY_LENGTH;
  * @constant
  * @type {number}
  * @default
-*/
-const MAX_OBJECT_DATA_SIZE  = 1024 * 64;
+ */
+const MAX_OBJECT_DATA_SIZE  = 1024 * 64 - 1;
 
-// Maximum length of keys, action and message ids. In their binary version.
-const KEY_LENGTH = 256;
+/**
+ * Maximum action and message ids key length size in bytes.
+ * Considers data in their binary version.
+ * @constant
+ * @type {number}
+ * @default
+ */
+const KEY_LENGTH = 255;
 
-// type (uint8), action length (uint8), (uint32le) msg id, (uint32le) message length
-const MESSAGE_FRAME_LENGTH = 1 + 1 + 4 + 4;
+/**
+ * Message id length in bytes.
+ * @constant
+ * @type {number}
+ * @default
+ */
+const MESSAGE_ID_LENGTH = 4;
 
-// type (uint8), key length (uint8), data length (uint16)
+/**
+ * Message frame length in bytes (header)
+ * Composed of:
+ *  type: uint8
+ *  action length: uint8
+ *  msg id: uint32le
+ *  message length: uint32le
+ * @constant
+ * @type {number}
+ * @default
+ */
+const MESSAGE_FRAME_LENGTH = 1 + 1 + MESSAGE_ID_LENGTH + 4;
+
+/**
+ * Object frame length in bytes (header)
+ * Composed of:
+ *  type: uint8
+ *  key length: uint8
+ *  data length: uint16
+ * @constant
+ * @type {number}
+ * @default
+ */
 const OBJECT_FRAME_LENGTH = 1 + 1 + 2;
 
+/**
+ * Binary object type
+ * @constant
+ * @type {number}
+ * @default
+ */
 const TYPE_BINARY       = 0;
+
+/**
+ * Boolean object type
+ * @constant
+ * @type {number}
+ * @default
+ */
 const TYPE_BOOLEAN      = 1;
+
+/**
+ * 8-bit unsigned integer object type
+ * @constant
+ * @type {number}
+ * @default
+ */
 const TYPE_UINT8        = 2;
+
+/**
+ * 8-bit signed integer object type
+ * @constant
+ * @type {number}
+ * @default
+ */
 const TYPE_INT8         = 3;
+
+/**
+ * 16-bit unsigned integer object type
+ * @constant
+ * @type {number}
+ * @default
+ */
 const TYPE_UINT16       = 4;
+
+/**
+ * 16-bit signed integer object type
+ * @constant
+ * @type {number}
+ * @default
+ */
 const TYPE_INT16        = 5;
+
+/**
+ * 32-bit unsigned integer object type
+ * @constant
+ * @type {number}
+ * @default
+ */
 const TYPE_UINT32       = 6;
+
+/**
+ * 32-bit signed integer object type
+ * @constant
+ * @type {number}
+ * @default
+ */
 const TYPE_INT32        = 7;
+
+/**
+ * Null object type
+ * @constant
+ * @type {number}
+ * @default
+ */
+const TYPE_NULL         = 8;
+
+/**
+ * UTF-8 object type
+ * @constant
+ * @type {number}
+ * @default
+ */
 const TYPE_UTF8STRING   = 30;
+
+/**
+ * Number as string object type
+ * Floats and very large integers are represented in their textual form
+ * @constant
+ * @type {number}
+ * @default
+ */
 const TYPE_TEXTNUMBER   = 31;
+
+/**
+ * JSON object type
+ * @constant
+ * @type {number}
+ * @default
+ */
 const TYPE_JSON         = 32;
 
-/** Floats and very large integers are represented in their textual form */
-
+/**
+ * MessageEncoder
+ */
 class MessageEncoder
 {
     /**
      * Create a new message.
-     * @param {string} messageAction maximum 256 bytes action string. Used for routing at receiving end.
-     *  If set to existing msgId on receiver's end then it is a reply message.
-     * @param {string} [messageId] maximum 16 bytes message ID in hex format.
+     * @param {string} messageAction - Used for routing at receiving end.
+     *  If set to existing msgId on receiver's end then it is a reply message. Maximum length is defined by KEY_LENGTH.
+     * @param {string} [messageId] - message identifier in hexadecimal format. Expected length is defined by MESSAGE_ID_LENGTH.
+     * @throws A TypeError will be thrown if messageAction or messageId are not a string or another type appropriate for Buffer.from() variants.
+     *  An error message will be thrown if the messageAction length exceeds KEY_LENGTH.
+     *  An error is expected to be thrown if there is a problem generating the random hexadecimal messageId, when none is provided.
+     *  An error message will be thrown if the messageId doesn't match the format specifications.
+     *  An error message will be thrown if the messageId length exceeds MESSAGE_ID_LENGTH.
      */
     constructor(messageAction, messageId)
     {
         this.messageAction = Buffer.from(messageAction, "utf8");
         if (this.messageAction.length > KEY_LENGTH) {
-            throw `Message action cannot exceed ${KEY_LENGTH} bytes.`;
+            throw `Message action length ${this.messageAction.length} exceeds maximum allowed length of ${KEY_LENGTH} bytes.`;
         }
 
-        messageId = messageId || Hash.generateRandomHex(4);
+        messageId = messageId || Hash.generateRandomHex(MESSAGE_ID_LENGTH);
 
         if (messageId.toLowerCase() !== messageId) {
-            throw "Message ID must be provided as lowercase hex string.";
+            throw "Message ID must be provided as lowercase hexadecimal string.";
         }
 
         this.messageId = Buffer.from(messageId, "hex");
 
-        if (this.messageId.length !== 4) {
-            throw `Message id must be 4 bytes as a hexadecimal string.`;
+        if (this.messageId.length !== MESSAGE_ID_LENGTH) {
+            throw `Message id length ${this.messageId.length} does not match expected length of ${MESSAGE_ID_LENGTH} bytes.`;
         }
 
         this.buffers = [];
@@ -113,31 +240,33 @@ class MessageEncoder
      */
     getMsgId()
     {
+        // Expects the messageId to have been set in the constructor
+        assert(this.messageId);
         return this.messageId.toString("hex");
     }
 
     /**
-     * Add any serializable value, including null.
-     * Do not put any other data types than the null, number, boolean, array and object.
+     * Add any serializable value, including null (added as string).
+     * Do not put any data types other than: null, string, number, boolean, object, Array and Buffer.
      * Arrays must also only include fundamental data types.
      * Objects can have attached Buffers, same principle as when calling addObject().
      *
-     * @param {string} key prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object.
-     * @param {any} any fundamental data type and also Buffer
+     * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object.
+     * @param {null | string | number | boolean | Array | Buffer | object} any - fundamental data types in addition to Buffer and Array
+     * @throws An exception will be thrown if the input data (any) is not in a valid data type.
+     *  Errors are expected to be thrown by the allowed data type processors when either the key or the value (any) are not in the expected type format.
      */
     add(key, any)
     {
-        if (any === undefined) {
-            return;
-        }
+        const typeOfAny = typeof any;
 
         if (any === null || typeof any === "string") {
             this.addString(key, any);
         }
-        else if (typeof any === "number") {
+        else if (typeOfAny === "number") {
             this.addNumber(key, any);
         }
-        else if (typeof any === "boolean") {
+        else if (typeOfAny === "boolean") {
             this.addBoolean(key, any);
         }
         else if (Array.isArray(any)) {
@@ -146,26 +275,31 @@ class MessageEncoder
         else if (any instanceof Buffer) {
             this.addBinary(key, any);
         }
-        else if (typeof any === "object") {
+        else if (typeOfAny === "object") {
             this.addObject(key, any);
         }
         else {
-            throw "Could not add object, only fundamental data types allowed.";
+            throw `Could not add object of type ${typeOfAny}, only fundamental data types allowed.`;
         }
     }
 
+    /**
+     * Add serializable Buffer data.
+     *
+     * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object.
+     * @param {Buffer} buffer - Buffer data to be added.
+     * @throws Errors are expected to be thrown when either the key or the value are not in the expected type format.
+     *  An exception will be thrown when buffer data length is greater than MAX_OBJECT_DATA_SIZE.
+     *  An exception will be thrown when key length is bigger than KEY_LENGTH.
+     */
     addBinary(key, buffer)
     {
         if (typeof key !== "string") {
             throw "Key must be string";
         }
 
-        if (buffer === undefined || buffer === null) {
-            return;
-        }
-
-        if (!(buffer instanceof Buffer)) {
-            throw "Expecting Buffer"
+        if (buffer === undefined || buffer === null || !(buffer instanceof Buffer)) {
+            throw "Expecting Buffer";
         }
 
         const objectHeader = this._createObjectHeader(TYPE_BINARY, buffer.length, key);
@@ -174,7 +308,32 @@ class MessageEncoder
     }
 
     /**
-     * @param {string} utf8 string
+     * Add serializable null data.
+     *
+     * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object.
+     * @throws Errors are expected to be thrown when the key is not in the expected type format.
+     *  An exception will be thrown when key length is bigger than KEY_LENGTH.
+     */
+    addNull(key)
+    {
+        if (typeof key !== "string") {
+            throw "Key must be string";
+        }
+
+        const buffer = Buffer.from("");
+        const objectHeader = this._createObjectHeader(TYPE_NULL, buffer.length, key);
+        this.buffers.push(objectHeader);
+        this.buffers.push(buffer);
+    }
+
+    /**
+     * Add serializable string data.
+     *
+     * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object.
+     * @param {string} string - String encoded in UTF-8 to be added.
+     * @throws Errors are expected to be thrown when either the key or the string value are not in the expected type format.
+     *  An exception will be thrown when the buffer data length created from the input string is greater than MAX_OBJECT_DATA_SIZE.
+     *  An exception will be thrown when key length is bigger than KEY_LENGTH.
      */
     addString(key, string)
     {
@@ -182,37 +341,35 @@ class MessageEncoder
             throw "Key must be string";
         }
 
-        if (string === undefined || string === null) {
-            return;
-        }
+        if (string === null) {
+            this.addNull(key);
+        } else {
+            if (string === undefined || !(typeof string === "string")) {
+                throw "Expecting string";
+            }
 
-        if (typeof string === "string") {
-            // Pass through
+            const buffer = Buffer.from(string, "utf8");
+            const objectHeader = this._createObjectHeader(TYPE_UTF8STRING, buffer.length, key);
+            this.buffers.push(objectHeader);
+            this.buffers.push(buffer);
         }
-        else {
-            throw "Expecting string";
-        }
-
-        const buffer = Buffer.from(string, "utf8");
-        const objectHeader = this._createObjectHeader(TYPE_UTF8STRING, buffer.length, key);
-        this.buffers.push(objectHeader);
-        this.buffers.push(buffer);
     }
 
+    /**
+     * Add serializable number data.
+     *
+     * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object.
+     * @param {number} number - Number data to be added.
+     * @throws Errors are expected to be thrown when either the key or the value are not in the expected type format.
+     *  An exception will be thrown when key length is bigger than KEY_LENGTH.
+     */
     addNumber(key, number)
     {
         if (typeof key !== "string") {
             throw "Key must be string";
         }
 
-        if (number === undefined || number === null) {
-            return;
-        }
-
-        if (typeof number === "number") {
-            // Pass through
-        }
-        else {
+        if (number === undefined || number === null || !(typeof number === "number")) {
             throw "Expecting number";
         }
 
@@ -222,20 +379,21 @@ class MessageEncoder
         this.buffers.push(buffer);
     }
 
+    /**
+     * Add serializable boolean data.
+     *
+     * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object.
+     * @param {boolean} boolean - Boolean data to be added.
+     * @throws Errors are expected to be thrown when either the key or the value are not in the expected type format.
+     *  An exception will be thrown when key length is bigger than KEY_LENGTH.
+     */
     addBoolean(key, boolean)
     {
         if (typeof key !== "string") {
             throw "Key must be string";
         }
 
-        if (boolean === undefined || boolean === null) {
-            return;
-        }
-
-        if (typeof boolean === "boolean") {
-            // Pass through
-        }
-        else {
+        if (boolean === undefined || boolean === null || !(typeof boolean === "boolean")) {
             throw "Expecting boolean";
         }
 
@@ -246,30 +404,45 @@ class MessageEncoder
         this.buffers.push(buffer);
     }
 
+    /**
+     * Add serializable array data.
+     *
+     * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object.
+     * @param {Array} array - Array data to be added.
+     * @throws Errors are expected to be thrown when either the key or the value are not in the expected type format.
+     *  An exception will be thrown when the array contains data other than primitive data types.
+     *  An exception will be thrown when key length is bigger than KEY_LENGTH.
+     */
     addArray(key, array)
     {
         if (typeof key !== "string") {
             throw "Key must be string";
         }
 
-        if (array === undefined || array === null) {
-            return;
+        if (array === undefined || array === null || !(Array.isArray(array))) {
+            throw "Expecting Array";
         }
 
-        if (Array.isArray(array)) {
-            // Pass through
-        }
-        else {
-            throw "Expecting Array";
+        // Allow the addition of array only when elements include primitive data types
+        if(array.length > 0) {
+            if(array.some(data => (data !== null && typeof data != "string" && typeof data != "number" && typeof data != "boolean" && typeof data != "object"))) {
+                throw "Could not add array, only fundamental data types allowed.";
+            }
         }
 
         this.addJSON(key, JSON.stringify(array));
     }
 
     /**
-     * Add a object and also extract any Buffer objects and place add them as binaries.
+     * Add an object and also extract any Buffer objects and place them as binaries.
+     *
      * NOTE: Only buffer attached directly to object will be parsed, any nested buffers
      * will be missed and serialized in ways which we this class cannot restore, so do not do that.
+     *
+     * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object.
+     * @param {Object} object - Object data to be added.
+     * @throws Errors are expected to be thrown when either the key or the value are not in the expected type format.
+     *  An exception will be thrown when key length is bigger than KEY_LENGTH.
      */
     addObject(key, object)
     {
@@ -277,14 +450,7 @@ class MessageEncoder
             throw "Key must be string";
         }
 
-        if (object === undefined || object === null) {
-            return;
-        }
-
-        if (typeof object === "object" && Array.isArray(object) === false) {
-            // Pass through
-        }
-        else {
+        if ((object === undefined || object === null) || !(typeof object === "object" && Array.isArray(object) === false)) {
             throw "Expecting Object";
         }
 
@@ -310,12 +476,13 @@ class MessageEncoder
     }
 
     /**
-     * This add a complex object which is in the same format as the return when unpacking a message's props.
+     * Adds a complex object which is in the same format as the return when unpacking a message's props.
      *
      * The foreseen use case is to use this function to create a new message from an existing message's data.
-     * At the top level of the object arrays will be broken down into separat objects.
+     * At the top level of the object arrays will be broken down into separate objects.
      *
-     * @param {Object} complex
+     * @param {Object} object - complex data
+     * @throws Exceptions are expected to be thrown by add when either the key or the value specified in the object are not in the expected type format.
      */
     addProps(object)
     {
@@ -338,24 +505,23 @@ class MessageEncoder
         });
     }
 
+    /**
+     * Add serializable JSON data.
+     *
+     * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object.
+     * @param {string | Buffer} json - JSON data to be added.
+     * @throws Errors are expected to be thrown when either the key or the JSON value are not in the expected type format.
+     *  An exception will be thrown when the buffer data length created from the input JSON data is greater than MAX_OBJECT_DATA_SIZE.
+     *  An exception will be thrown when key length is bigger than KEY_LENGTH.
+     */
     addJSON(key, json)
     {
         if (typeof key !== "string") {
             throw "Key must be string";
         }
 
-        if (json === undefined || json === null) {
-            return;
-        }
-
-        if (typeof json === "string") {
-            // Pass through
-        }
-        else if (json instanceof Buffer) {
-            // Pass through
-        }
-        else {
-            throw "Expecting json string or buffer";
+        if ((json === undefined || json === null) || (typeof json !== "string" && !(json instanceof Buffer))) {
+            throw "Expecting JSON string or Buffer";
         }
 
         const buffer = (typeof json === "string") ? Buffer.from(json, "utf8") : json;
@@ -367,31 +533,35 @@ class MessageEncoder
     /**
      * Calculate the length of the packed message (when it is packed).
      * Can be used to limit additions to keep a message within a given size before packing it.
+     * @return {number} - The current message length
      */
     getCurrentLength()
     {
         let length = 0;
-        this.buffers.forEach( buffer => length = length + buffer.length + OBJECT_FRAME_LENGTH + 256);
-        length = length + MESSAGE_FRAME_LENGTH + 256;
+        this.buffers.forEach( buffer => length = length + buffer.length + OBJECT_FRAME_LENGTH + KEY_LENGTH);
+        length = length + MESSAGE_FRAME_LENGTH + KEY_LENGTH;
         return length;
     }
 
     /**
      * Return the available space left in the message for one added object.
-     * Note that the value can be greater then the allowed size for a single object.
+     * Note that the value can be greater than the allowed size for a single object.
+     * @return {number} - The remaining length available for this message
      */
     getAvailableLength()
     {
-        return MAX_MESSAGE_SIZE - this.getCurrentLength() - OBJECT_FRAME_LENGTH - 256;
+        return MAX_MESSAGE_SIZE - this.getCurrentLength() - OBJECT_FRAME_LENGTH - KEY_LENGTH;
     }
 
     /**
      * Return array of buffers representing the whole message.
      *
      * @return {Array<Buffer>}
+     * @throws An exception will be thrown when the resulting message length is bigger than MAX_MESSAGE_SIZE.
      */
     pack()
     {
+        // Create a new array of buffers to keep the original this.buffers data intact
         const buffers = this.buffers.slice();
         buffers.unshift(this._createMessageHeader());
         return buffers;
@@ -399,8 +569,10 @@ class MessageEncoder
 
     /**
      * Figure out number type and pack it.
-     * Large numbers over 32 bit and floats are packed in textual form.
+     * Large numbers over 32 bit, floats and strings are packed in textual form.
      *
+     * @param {number | string} n - number to be packed
+     * @return {Array<number, Buffer>}
      */
     _packNumber(n)
     {
@@ -467,6 +639,17 @@ class MessageEncoder
         return [type, buffer];
     }
 
+    /**
+     * Create a new object header based on object type, length and key.
+     *
+     * @param {number} objectType - a valid object type (TYPE_*)
+     * @param {number} length - object length
+     * @param {string} key - object key
+     * @throws A TypeError will be thrown if key is not a string or another type appropriate for Buffer.from() variants.
+     *  An exception will be thrown when key length is bigger than KEY_LENGTH.
+     *  An exception will be thrown when the length parameter is greater than MAX_OBJECT_DATA_SIZE.
+     * @return {Buffer} - object header
+     */
     _createObjectHeader(objectType, length, key)
     {
         if (!key || key == "") {
@@ -474,10 +657,10 @@ class MessageEncoder
         }
         const keyBuf = Buffer.from(key, "utf8");
         if (!keyBuf || keyBuf.length > KEY_LENGTH) {
-            throw `Key must be string of maximum ${KEY_LENGTH} bytes.`;
+            throw `Key length ${keyBuf.length} must be string of maximum ${KEY_LENGTH} bytes.`;
         }
         if (length > MAX_OBJECT_DATA_SIZE) {
-            throw `Too large object data for key ${key}, max size is ${MAX_OBJECT_DATA_SIZE} bytes for object data in a message.`;
+            throw `Too large object length ${length} for key \"${key}\", max size is ${MAX_OBJECT_DATA_SIZE} bytes for object data in a message.`;
         }
         const keyLength = keyBuf.length;
         const objectHeader = Buffer.alloc(OBJECT_FRAME_LENGTH + keyLength);
@@ -493,6 +676,12 @@ class MessageEncoder
         return objectHeader;
     }
 
+    /**
+     * Create a new message header.
+     *
+     * @throws An exception will be thrown if the message length is bigger than MAX_MESSAGE_SIZE.
+     * @return {Buffer} - message header
+     */
     _createMessageHeader()
     {
         let messageLength = 0;
@@ -502,7 +691,7 @@ class MessageEncoder
 
         // We deduct the message header so that we can guarantee message is maximum MAX_MESSAGE_SIZE
         if (messageLength > MAX_MESSAGE_SIZE - MESSAGE_FRAME_LENGTH - actionLength) {
-            throw `Message onverlow max size of ${MAX_MESSAGE_SIZE} bytes.`;
+            throw `Message length ${messageLength} overflows max size of ${MAX_MESSAGE_SIZE} bytes.`;
         }
 
         const messageHeader = Buffer.alloc(MESSAGE_FRAME_LENGTH + actionLength);
@@ -526,7 +715,6 @@ class MessageDecoder
 {
     /**
      * @param {Array<Buffer>} buffers
-     *
      */
     constructor(buffers)
     {
@@ -843,4 +1031,9 @@ class MessageDecoder
     }
 }
 
-module.exports = {MessageEncoder, MessageDecoder};
+module.exports =
+{
+    MessageEncoder, MessageDecoder,
+    MAX_MESSAGE_SIZE, MAX_OBJECT_DATA_SIZE, KEY_LENGTH, MESSAGE_FRAME_LENGTH, OBJECT_FRAME_LENGTH,
+    TYPE_UINT8, TYPE_INT8, TYPE_UINT16, TYPE_INT16, TYPE_UINT32, TYPE_INT32, TYPE_TEXTNUMBER, TYPE_UTF8STRING
+};
