@@ -840,6 +840,9 @@ class MessageDecoder
                 else if (type === TYPE_UINT32) {
                     object = buffer.readUInt32LE();
                 }
+                else if (type === TYPE_NULL) {
+                    object = buffer.toString();
+                }
                 else if (type === TYPE_TEXTNUMBER) {
                     object = Number(buffer.toString());
                 }
