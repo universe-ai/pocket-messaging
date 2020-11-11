@@ -26,6 +26,7 @@
  * L = (number of objects * object header length) + all objects key and data body
  *
  * If an object key is prefixed by the '^' character, then the object is attached to the last decoded object.
+ * If an object key is suffixed by the "[]" characters, then the object is attached to an array named after the key.
  * If there was no previous object then the decoding is aborted.
  */
 
@@ -251,7 +252,7 @@ class MessageEncoder
      * Arrays must also only include fundamental data types.
      * Objects can have attached Buffers, same principle as when calling addObject().
      *
-     * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object.
+     * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object. If an object key is suffixed with "[]", then the object is attached to an array named after the key.
      * @param {null | string | number | boolean | Array | Buffer | object} any - fundamental data types in addition to Buffer and Array
      * @throws An exception will be thrown if the input data (any) is not in a valid data type.
      *  Errors are expected to be thrown by the allowed data type processors when either the key or the value (any) are not in the expected type format.
@@ -286,7 +287,7 @@ class MessageEncoder
     /**
      * Add serializable Buffer data.
      *
-     * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object.
+     * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object. If an object key is suffixed with "[]", then the object is attached to an array named after the key.
      * @param {Buffer} buffer - Buffer data to be added.
      * @throws Errors are expected to be thrown when either the key or the value are not in the expected type format.
      *  An exception will be thrown when buffer data length is greater than MAX_OBJECT_DATA_SIZE.
@@ -310,7 +311,7 @@ class MessageEncoder
     /**
      * Add serializable null data.
      *
-     * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object.
+     * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object. If an object key is suffixed with "[]", then the object is attached to an array named after the key.
      * @throws Errors are expected to be thrown when the key is not in the expected type format.
      *  An exception will be thrown when key length is bigger than KEY_LENGTH.
      */
@@ -329,7 +330,7 @@ class MessageEncoder
     /**
      * Add serializable string data.
      *
-     * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object.
+     * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object. If an object key is suffixed with "[]", then the object is attached to an array named after the key.
      * @param {string} string - String encoded in UTF-8 to be added.
      * @throws Errors are expected to be thrown when either the key or the string value are not in the expected type format.
      *  An exception will be thrown when the buffer data length created from the input string is greater than MAX_OBJECT_DATA_SIZE.
@@ -358,7 +359,7 @@ class MessageEncoder
     /**
      * Add serializable number data.
      *
-     * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object.
+     * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object. If an object key is suffixed with "[]", then the object is attached to an array named after the key.
      * @param {number} number - Number data to be added.
      * @throws Errors are expected to be thrown when either the key or the value are not in the expected type format.
      *  An exception will be thrown when key length is bigger than KEY_LENGTH.
@@ -382,7 +383,7 @@ class MessageEncoder
     /**
      * Add serializable boolean data.
      *
-     * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object.
+     * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object. If an object key is suffixed with "[]", then the object is attached to an array named after the key.
      * @param {boolean} boolean - Boolean data to be added.
      * @throws Errors are expected to be thrown when either the key or the value are not in the expected type format.
      *  An exception will be thrown when key length is bigger than KEY_LENGTH.
@@ -407,7 +408,7 @@ class MessageEncoder
     /**
      * Add serializable array data.
      *
-     * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object.
+     * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object. If an object key is suffixed with "[]", then the object is attached to an array named after the key.
      * @param {Array} array - Array data to be added.
      * @throws Errors are expected to be thrown when either the key or the value are not in the expected type format.
      *  An exception will be thrown when the array contains data other than primitive data types.
@@ -439,7 +440,7 @@ class MessageEncoder
      * NOTE: Only buffer attached directly to object will be parsed, any nested buffers
      * will be missed and serialized in ways which we this class cannot restore, so do not do that.
      *
-     * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object.
+     * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object. If an object key is suffixed with "[]", then the object is attached to an array named after the key.
      * @param {Object} object - Object data to be added.
      * @throws Errors are expected to be thrown when either the key or the value are not in the expected type format.
      *  An exception will be thrown when key length is bigger than KEY_LENGTH.
@@ -508,7 +509,7 @@ class MessageEncoder
     /**
      * Add serializable JSON data.
      *
-     * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object.
+     * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object. If an object key is suffixed with "[]", then the object is attached to an array named after the key.
      * @param {string | Buffer} json - JSON data to be added.
      * @throws Errors are expected to be thrown when either the key or the JSON value are not in the expected type format.
      *  An exception will be thrown when the buffer data length created from the input JSON data is greater than MAX_OBJECT_DATA_SIZE.
@@ -728,8 +729,9 @@ class MessageDecoder
     /**
      * Initialize the unpacking of the message.
      * Tries to decode the initial message header.
-     * If the init fails, try again when more data has arrived.
+     * Note: If the init fails, try again when more data has arrived.
      *
+     * @throws Exception is thrown when object has already been initialized.
      * @return {boolean} true if successful.
      */
     init()
@@ -756,6 +758,7 @@ class MessageDecoder
         pos = pos + 4;
         this.length = buffer.readUInt32LE(pos);
         pos = pos + 4;
+        assert(pos == MESSAGE_FRAME_LENGTH);
 
         const actionBuffer = this._readData(this.position + pos, actionLength);
         if (!actionBuffer) {
@@ -772,6 +775,7 @@ class MessageDecoder
 
     /**
      * Check if we have a full message in the buffers.
+     * @throws Exception is thrown when object has not been initialized.
      * @return {boolean} true if there is a full message to be decoded.
      */
     isReady()
@@ -787,10 +791,14 @@ class MessageDecoder
      * Unpack a full message from the buffers.
      * Depends on that init() has been called first and that all the message data is in the buffers.
      *
-     * @return {Array<{string} action, {string} messageId, {Object} props>}
+     * @throws Exception is thrown when object has not been previously initialized.
+     * @throws Exception is thrown when a failure occurs during the message unpacking process, such as errors during parsing.
+     * @throws Exception is thrown when an unexpected data type is present in the message to be unpacked.
+     * @return {Array<{string} action, {string} messageId, {Object} props> | null}
      *  action is the given action or the message ID if the message is a reply message.
-     *  messageId Is the message's ID.
-     *
+     *  messageId is the message's ID.
+     *  props are the object containing the key value properties.
+     *  Returns null on error.
      */
     unpack()
     {
@@ -910,6 +918,10 @@ class MessageDecoder
      */
     _readData(position, length)
     {
+        if (!this.buffers) {
+            return null;
+        }
+
         let ret = Buffer.alloc(0);
         let bytesToRead = length;
         let index = 0;
