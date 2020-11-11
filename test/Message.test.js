@@ -123,7 +123,7 @@ describe("General", () => {
         // over different buffers.
     });
 
-    test(" test_further()", () => {
+    test("test_further()", () => {
         const newMessage = new MessageEncoder("myAction", "abba4e14");
         assert(newMessage._packNumber(0)[0] == 2);
         let packedBuffers = newMessage.pack();
@@ -973,12 +973,12 @@ describe("MessageDecoder", () => {
     let RANDOM_MESSAGE_ACTION;
     let RANDOM_MESSAGE_ID;
     beforeEach(() => {
-        RANDOM_MESSAGE_ACTION = crypto.randomBytes(KEY_LENGTH).toString("ascii").slice(0, KEY_LENGTH);
+        RANDOM_MESSAGE_ACTION = crypto.randomBytes(KEY_LENGTH).toString("ascii").slice(0, 10);
         RANDOM_MESSAGE_ID = crypto.randomBytes(4).toString("hex");
     });
 
     describe("constructor", () => {
-        test("Missing required packed message argument", () => {
+        test("Missing required packed message buffers argument", () => {
             assert.throws(() => new MessageEncoder(), /TypeError \[ERR_INVALID_ARG_TYPE\]/);
         });
 
@@ -998,26 +998,249 @@ describe("MessageDecoder", () => {
             assert(decoder.action == null);
             assert(decoder.length == null);
         });
+    });
 
-        // TODO: FIXME:
-        test("WIP", () => {
-            // Set up encoded message
+    describe("init", () => {
+        //
+        // Set up encoded message
+        let messagePack;
+        beforeEach(() => {
             const messageDataKey = "data is a string";
             const messageDataValue = "a string";
             const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
-            assert.doesNotThrow(() => message.add(messageDataKey, messageDataValue));
-            const messagePack = message.pack();
-
-            // Create new decoder
-            const decoder = new MessageDecoder(messagePack);
-            assert(decoder.init());
-            assert(decoder.isReady());
-            const messageDecoded = decoder.unpack();
-
-            assert(messageDecoded[0] == RANDOM_MESSAGE_ACTION);
-            assert(messageDecoded[1] == RANDOM_MESSAGE_ID);
-            assert(Object.keys(messageDecoded[2])[0] == messageDataKey);
-            assert(messageDecoded[2][messageDataKey] == messageDataValue);
+            message.add(messageDataKey, messageDataValue);
+            messagePack = message.pack();
         });
+
+        test("Single initialization", () => {
+            const decoder = new MessageDecoder(messagePack);
+            let initStatus;
+            assert.doesNotThrow(() => initStatus = decoder.init());
+            assert(initStatus == true);
+        });
+
+        test("Double initialization", () => {
+            const decoder = new MessageDecoder(messagePack);
+            let initStatus;
+            assert.doesNotThrow(() => initStatus = decoder.init());
+            assert(initStatus == true);
+            let repeatStatus;
+            assert.throws(() => repeatStatus = decoder.init(), /Cannot run init\(\) more than once when unpacking./);
+            assert(repeatStatus == undefined);
+        });
+
+        test("No data to read", () => {
+            const decoder = new MessageDecoder(null);
+            let initStatus;
+            assert.doesNotThrow(() => initStatus = decoder.init());
+            assert(initStatus == false);
+        });
+
+        test("First buffer byte is 0", () => {
+            const decoder = new MessageDecoder(messagePack);
+            assert(decoder.buffers[0].readUInt8(0) == 0x00);
+            let initStatus;
+            assert.doesNotThrow(() => initStatus = decoder.init());
+            assert(initStatus == true);
+        });
+
+        test("First buffer byte is 1", () => {
+            const decoder = new MessageDecoder(messagePack);
+            decoder.buffers[0].writeUInt8("0x01", 0);
+            let initStatus;
+            assert.doesNotThrow(() => initStatus = decoder.init());
+            assert(initStatus == false);
+        });
+
+        test("Action buffer is unset", () => {
+            const decoder = new MessageDecoder(messagePack);
+            let counter;
+            for(counter=0; counter<RANDOM_MESSAGE_ACTION.length; counter++) {
+                decoder.buffers[0].writeUInt8("0x00", MESSAGE_FRAME_LENGTH + counter);
+            }
+            let initStatus;
+            assert.doesNotThrow(() => initStatus = decoder.init());
+            assert(initStatus == true);
+        });
+
+        test("Action length is modified", () => {
+            const decoder = new MessageDecoder(messagePack);
+            assert(RANDOM_MESSAGE_ACTION.length != 255);
+            decoder.buffers[0].writeUInt8(255, MESSAGE_FRAME_LENGTH);
+            let initStatus;
+            assert.doesNotThrow(() => initStatus = decoder.init());
+            assert(initStatus == true);
+            assert(decoder.action != RANDOM_MESSAGE_ACTION);
+        });
+
+        test("Successfully initialize decoder object", () => {
+            const decoder = new MessageDecoder(messagePack);
+            let initStatus;
+            assert.doesNotThrow(() => initStatus = decoder.init());
+            assert(initStatus == true);
+
+            assert(decoder.length != null);
+            assert(decoder.messageId.toString("hex") == RANDOM_MESSAGE_ID);
+            assert(decoder.length == MESSAGE_FRAME_LENGTH + RANDOM_MESSAGE_ACTION.length + RANDOM_MESSAGE_ID.length );
+            assert(decoder.action == RANDOM_MESSAGE_ACTION);
+            assert(decoder.position == (0 + MESSAGE_FRAME_LENGTH + RANDOM_MESSAGE_ACTION.length));
+        });
+    });
+
+    describe("isReady", () => {
+        //
+        // Set up encoded message
+        let messagePack;
+        beforeEach(() => {
+            const messageDataKey = "data is a string";
+            const messageDataValue = "a string";
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.add(messageDataKey, messageDataValue);
+            messagePack = message.pack();
+        });
+
+        test("Fail to retrieve status before initialization", () => {
+            const decoder = new MessageDecoder(messagePack);
+            let isReadyStatus;
+            assert.throws(() => isReadyStatus = decoder.isReady(), /Cannot run isReady\(\) before init\(\) has successfully been called./);
+            assert(isReadyStatus == undefined);
+        });
+
+        test("Retrieve status false due to length bigger than remaining length", () => {
+            const decoder = new MessageDecoder(messagePack);
+            decoder.init();
+            decoder.length = decoder.length + 1;
+            let isReadyStatus;
+            assert.doesNotThrow(() => isReadyStatus = decoder.isReady());
+            assert(isReadyStatus == false);
+        });
+
+        test("Retrieve status false due to remaining length bigger than length", () => {
+            const decoder = new MessageDecoder(messagePack);
+            decoder.init();
+            decoder.buffers = Buffer.alloc(decoder.buffers.length + 1);
+            let isReadyStatus;
+            assert.doesNotThrow(() => isReadyStatus = decoder.isReady());
+            assert(isReadyStatus == false);
+        });
+
+        test("Retrieve status after initialization", () => {
+            const decoder = new MessageDecoder(messagePack);
+            decoder.init();
+            let isReadyStatus;
+            assert.doesNotThrow(() => isReadyStatus = decoder.isReady());
+            assert(isReadyStatus == true);
+        });
+    });
+
+    describe("unpack", () => {
+        //
+        // Set up encoded message
+        const messageDataKey = "data is a string";
+        const messageDataValue = "a string";
+        let messagePack;
+        beforeEach(() => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.add(messageDataKey, messageDataValue);
+            messagePack = message.pack();
+        });
+
+        test("Data is not initialized", () => {
+            const decoder = new MessageDecoder(messagePack);
+            assert.throws(() => decoder.unpack(), /Cannot run isReady\(\) before init\(\) has successfully been called./);
+        });
+
+        test("Data is not ready", () => {
+            const decoder = new MessageDecoder(messagePack);
+            decoder.init();
+            decoder.length = decoder.length + 1;
+            let isReadyStatus;
+            assert.doesNotThrow(() => isReadyStatus = decoder.isReady());
+            assert(isReadyStatus == false);
+            let unpackStatus;
+            assert.doesNotThrow(() => unpackStatus = decoder.unpack());
+            assert(unpackStatus == null);
+        });
+
+        test("Failure during unpacking loop", () => {
+        });
+
+        test("Regular key", () => {
+        });
+
+        test("Key starts with ^", () => {
+        });
+
+        test("Key ends with []", () => {
+        });
+
+        test("Data is unknown", () => {
+        });
+
+        test("Data is binary", () => {
+        });
+
+        test("Data is string", () => {
+            const decoder = new MessageDecoder(messagePack);
+            decoder.init();
+            let isReadyStatus;
+            assert.doesNotThrow(() => isReadyStatus = decoder.isReady());
+            assert(isReadyStatus == true);
+            let unpackStatus;
+            assert.doesNotThrow(() => unpackStatus = decoder.unpack());
+            assert(unpackStatus[0] == RANDOM_MESSAGE_ACTION);
+            assert(unpackStatus[1] == RANDOM_MESSAGE_ID);
+            assert(unpackStatus[2].hasOwnProperty(messageDataKey));
+            assert(unpackStatus[2][messageDataKey] == messageDataValue);
+        });
+
+        test("Data is boolean", () => {
+        });
+
+        test("Data is int8", () => {
+        });
+
+        test("Data is uint8", () => {
+        });
+
+        test("Data is int16", () => {
+        });
+
+        test("Data is uint16", () => {
+        });
+
+        test("Data is int32", () => {
+        });
+
+        test("Data is uint32", () => {
+        });
+
+        test("Data is null", () => {
+        });
+
+        test("Data is big number", () => {
+        });
+
+        test("Data is big negative number", () => {
+        });
+
+        test("Data is JSON", () => {
+        });
+
+        test("Data is ready with no props", () => {
+        });
+    });
+
+    // TODO: FIXME:
+    test.skip("WIP", () => {
+        const decoder = new MessageDecoder(messagePack);
+        assert(decoder.init());
+        assert(decoder.isReady());
+        const messageDecoded = decoder.unpack();
+
+        assert(messageDecoded[0] == RANDOM_MESSAGE_ACTION);
+        assert(messageDecoded[1] == RANDOM_MESSAGE_ID);
+        assert(Object.keys(messageDecoded[2])[0] == messageDataKey);
+        assert(messageDecoded[2][messageDataKey] == messageDataValue);
     });
 });
