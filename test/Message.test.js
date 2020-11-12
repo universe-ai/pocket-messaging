@@ -1163,21 +1163,125 @@ describe("MessageDecoder", () => {
         });
 
         test("Failure during unpacking loop", () => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.add(messageDataKey, {a:"1", b:"2"});
+            const messagePacked = message.pack();
+            const decoder = new MessageDecoder(messagePacked);
+            decoder.init();
+            assert(decoder.isReady());
+
+            // Invalidate buffers
+            decoder.buffers[1].writeUInt8(255, 0);
+
+            let unpackStatus;
+            assert.doesNotThrow(() => unpackStatus = decoder.unpack());
+            assert(unpackStatus == null);
         });
 
         test("Regular key", () => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.add("regular key", "regular string");
+            const messagePacked = message.pack();
+            const decoder = new MessageDecoder(messagePacked);
+            decoder.init();
+            assert(decoder.isReady());
+            let unpackStatus;
+            assert.doesNotThrow(() => unpackStatus = decoder.unpack());
+            assert(unpackStatus[0] == RANDOM_MESSAGE_ACTION);
+            assert(unpackStatus[1] == RANDOM_MESSAGE_ID);
+            assert(unpackStatus[2].hasOwnProperty("regular key"));
+            assert(unpackStatus[2]["regular key"] == "regular string");
+        });
+
+        test("Key starts with ^ but there is no last object", () => {
+            let messagePacked;
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.add(messageDataKey, messageDataValue);
+            const messageDataKeyAppend = "^attached";
+            message.add(messageDataKeyAppend, messageDataValue);
+            messagePacked = message.pack();
+
+            const decoder = new MessageDecoder(messagePacked);
+            decoder.init();
+            assert(decoder.isReady());
+            let unpackStatus;
+            assert.doesNotThrow(() => unpackStatus = decoder.unpack());
+            assert(unpackStatus == null);
         });
 
         test("Key starts with ^", () => {
+            let messagePacked;
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.add(messageDataKey, {"a": 2});
+            messagePacked = message.pack();
+            const messageDataKeyAppend = "^attached";
+            message.add(messageDataKeyAppend, {"b": 4});
+            messagePacked = message.pack();
+
+            const decoder = new MessageDecoder(messagePacked);
+            decoder.init();
+            let unpackStatus;
+            assert.doesNotThrow(() => unpackStatus = decoder.unpack());
+            console.log(unpackStatus);
+            assert(unpackStatus[0] == RANDOM_MESSAGE_ACTION);
+            assert(unpackStatus[1] == RANDOM_MESSAGE_ID);
+            assert(unpackStatus[2].hasOwnProperty(messageDataKey));
+            assert(unpackStatus[2][messageDataKey].a == 2);
+            assert(unpackStatus[2][messageDataKey].attached.b == 4);
+            assert(unpackStatus.length == 3);
         });
 
         test("Key ends with []", () => {
+            let messagePacked;
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.add(messageDataKey, {"c": 6});
+            messagePacked = message.pack();
+            const messageDataKeyAppend = "^attached[]";
+            message.add(messageDataKeyAppend, {"d": 12});
+            messagePacked = message.pack();
+
+            const decoder = new MessageDecoder(messagePacked);
+            decoder.init();
+            let unpackStatus;
+            assert.doesNotThrow(() => unpackStatus = decoder.unpack());
+            console.log(unpackStatus);
+            assert(unpackStatus[0] == RANDOM_MESSAGE_ACTION);
+            assert(unpackStatus[1] == RANDOM_MESSAGE_ID);
+            assert(unpackStatus[2].hasOwnProperty(messageDataKey));
+            assert(unpackStatus[2][messageDataKey].c == 6);
+            assert(unpackStatus[2][messageDataKey].attached[0].d == 12);
+            assert(unpackStatus.length == 3);
         });
 
         test("Data is unknown", () => {
+            let messagePacked;
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.add(messageDataKey, messageDataValue);
+            messagePacked = message.pack();
+            const decoder = new MessageDecoder(messagePacked);
+            decoder.init();
+
+            // Hijack data
+            decoder.buffers[1].writeUInt8(255, 0);
+
+            let unpackStatus;
+            assert.doesNotThrow(() => unpackStatus = decoder.unpack());
+            assert(unpackStatus == null);
         });
 
         test("Data is binary", () => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.addBinary("regular key", Buffer.from("regular string"));
+            const messagePacked = message.pack();
+            const decoder = new MessageDecoder(messagePacked);
+            decoder.init();
+            assert(decoder.isReady());
+            let unpackStatus;
+            assert.doesNotThrow(() => unpackStatus = decoder.unpack());
+            assert(unpackStatus[0] == RANDOM_MESSAGE_ACTION);
+            assert(unpackStatus[1] == RANDOM_MESSAGE_ID);
+            assert(unpackStatus[2].hasOwnProperty("regular key"));
+            assert(unpackStatus[2]["regular key"].toString() == "regular string");
         });
 
         test("Data is string", () => {
@@ -1195,39 +1299,594 @@ describe("MessageDecoder", () => {
         });
 
         test("Data is boolean", () => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.addBoolean("regular key", true);
+            const messagePacked = message.pack();
+            const decoder = new MessageDecoder(messagePacked);
+            decoder.init();
+            assert(decoder.isReady());
+            let unpackStatus;
+            assert.doesNotThrow(() => unpackStatus = decoder.unpack());
+            assert(unpackStatus[0] == RANDOM_MESSAGE_ACTION);
+            assert(unpackStatus[1] == RANDOM_MESSAGE_ID);
+            assert(unpackStatus[2].hasOwnProperty("regular key"));
+            assert(unpackStatus[2]["regular key"] == true);
         });
 
         test("Data is int8", () => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.addNumber("regular key", -2);
+            const messagePacked = message.pack();
+            const decoder = new MessageDecoder(messagePacked);
+            decoder.init();
+            assert(decoder.isReady());
+            let unpackStatus;
+            assert.doesNotThrow(() => unpackStatus = decoder.unpack());
+            assert(unpackStatus[0] == RANDOM_MESSAGE_ACTION);
+            assert(unpackStatus[1] == RANDOM_MESSAGE_ID);
+            assert(unpackStatus[2].hasOwnProperty("regular key"));
+            assert(unpackStatus[2]["regular key"] == -2);
         });
 
         test("Data is uint8", () => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.addNumber("regular key", 2);
+            const messagePacked = message.pack();
+            const decoder = new MessageDecoder(messagePacked);
+            decoder.init();
+            assert(decoder.isReady());
+            let unpackStatus;
+            assert.doesNotThrow(() => unpackStatus = decoder.unpack());
+            assert(unpackStatus[0] == RANDOM_MESSAGE_ACTION);
+            assert(unpackStatus[1] == RANDOM_MESSAGE_ID);
+            assert(unpackStatus[2].hasOwnProperty("regular key"));
+            assert(unpackStatus[2]["regular key"] == 2);
         });
 
         test("Data is int16", () => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.addNumber("regular key", -32767);
+            const messagePacked = message.pack();
+            const decoder = new MessageDecoder(messagePacked);
+            decoder.init();
+            assert(decoder.isReady());
+            let unpackStatus;
+            assert.doesNotThrow(() => unpackStatus = decoder.unpack());
+            assert(unpackStatus[0] == RANDOM_MESSAGE_ACTION);
+            assert(unpackStatus[1] == RANDOM_MESSAGE_ID);
+            assert(unpackStatus[2].hasOwnProperty("regular key"));
+            assert(unpackStatus[2]["regular key"] == -32767);
         });
 
         test("Data is uint16", () => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.addNumber("regular key", 65535);
+            const messagePacked = message.pack();
+            const decoder = new MessageDecoder(messagePacked);
+            decoder.init();
+            assert(decoder.isReady());
+            let unpackStatus;
+            assert.doesNotThrow(() => unpackStatus = decoder.unpack());
+            assert(unpackStatus[0] == RANDOM_MESSAGE_ACTION);
+            assert(unpackStatus[1] == RANDOM_MESSAGE_ID);
+            assert(unpackStatus[2].hasOwnProperty("regular key"));
+            assert(unpackStatus[2]["regular key"] == 65535);
         });
 
         test("Data is int32", () => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.addNumber("regular key", -2147483648);
+            const messagePacked = message.pack();
+            const decoder = new MessageDecoder(messagePacked);
+            decoder.init();
+            assert(decoder.isReady());
+            let unpackStatus;
+            assert.doesNotThrow(() => unpackStatus = decoder.unpack());
+            assert(unpackStatus[0] == RANDOM_MESSAGE_ACTION);
+            assert(unpackStatus[1] == RANDOM_MESSAGE_ID);
+            assert(unpackStatus[2].hasOwnProperty("regular key"));
+            assert(unpackStatus[2]["regular key"] == -2147483648);
         });
 
         test("Data is uint32", () => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.addNumber("regular key", 4294967295);
+            const messagePacked = message.pack();
+            const decoder = new MessageDecoder(messagePacked);
+            decoder.init();
+            assert(decoder.isReady());
+            let unpackStatus;
+            assert.doesNotThrow(() => unpackStatus = decoder.unpack());
+            assert(unpackStatus[0] == RANDOM_MESSAGE_ACTION);
+            assert(unpackStatus[1] == RANDOM_MESSAGE_ID);
+            assert(unpackStatus[2].hasOwnProperty("regular key"));
+            assert(unpackStatus[2]["regular key"] == 4294967295);
         });
 
         test("Data is null", () => {
-        });
-
-        test("Data is big number", () => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.addNull("regular key");
+            const messagePacked = message.pack();
+            const decoder = new MessageDecoder(messagePacked);
+            decoder.init();
+            assert(decoder.isReady());
+            let unpackStatus;
+            assert.doesNotThrow(() => unpackStatus = decoder.unpack());
+            assert(unpackStatus[0] == RANDOM_MESSAGE_ACTION);
+            assert(unpackStatus[1] == RANDOM_MESSAGE_ID);
+            assert(unpackStatus[2].hasOwnProperty("regular key"));
+            assert(unpackStatus[2]["regular key"] == "");
         });
 
         test("Data is big negative number", () => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.addNumber("regular key", -100000000000);
+            const messagePacked = message.pack();
+            const decoder = new MessageDecoder(messagePacked);
+            decoder.init();
+            assert(decoder.isReady());
+            let unpackStatus;
+            assert.doesNotThrow(() => unpackStatus = decoder.unpack());
+            assert(unpackStatus[0] == RANDOM_MESSAGE_ACTION);
+            assert(unpackStatus[1] == RANDOM_MESSAGE_ID);
+            assert(unpackStatus[2].hasOwnProperty("regular key"));
+            assert(unpackStatus[2]["regular key"] == -100000000000);
+        });
+
+        test("Data is big number", () => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.addNumber("regular key", 100000000000);
+            const messagePacked = message.pack();
+            const decoder = new MessageDecoder(messagePacked);
+            decoder.init();
+            assert(decoder.isReady());
+            let unpackStatus;
+            assert.doesNotThrow(() => unpackStatus = decoder.unpack());
+            assert(unpackStatus[0] == RANDOM_MESSAGE_ACTION);
+            assert(unpackStatus[1] == RANDOM_MESSAGE_ID);
+            assert(unpackStatus[2].hasOwnProperty("regular key"));
+            assert(unpackStatus[2]["regular key"] == 100000000000);
+        });
+
+        test("Data is broken JSON", () => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            const data = {"vorhees": 0, "krueger": 1, "myers": 2};
+            let dataJson = JSON.stringify(data);
+            message.addJSON("regular key", dataJson);
+            const messagePacked = message.pack();
+            const decoder = new MessageDecoder(messagePacked);
+            decoder.init();
+            assert(decoder.isReady());
+
+            // Invalidate JSON
+            decoder.buffers[2].writeUInt32LE(0, 0);
+
+            let unpackStatus;
+            assert.doesNotThrow(() => unpackStatus = decoder.unpack());
+            assert(unpackStatus == null);
         });
 
         test("Data is JSON", () => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            const data = {"vorhees": 0, "krueger": 1, "myers": 2};
+            message.addJSON("regular key", JSON.stringify(data));
+            const messagePacked = message.pack();
+            const decoder = new MessageDecoder(messagePacked);
+            decoder.init();
+            assert(decoder.isReady());
+            let unpackStatus;
+            assert.doesNotThrow(() => unpackStatus = decoder.unpack());
+            assert(unpackStatus[0] == RANDOM_MESSAGE_ACTION);
+            assert(unpackStatus[1] == RANDOM_MESSAGE_ID);
+            assert(unpackStatus[2].hasOwnProperty("regular key"));
+            assert(unpackStatus[2]["regular key"].vorhees == 0);
+            assert(unpackStatus[2]["regular key"].krueger == 1);
+            assert(unpackStatus[2]["regular key"].myers == 2);
         });
 
+
         test("Data is ready with no props", () => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            const messagePacked = message.pack();
+            const decoder = new MessageDecoder(messagePacked);
+            decoder.init();
+            assert(decoder.isReady());
+            let unpackStatus;
+            assert.doesNotThrow(() => unpackStatus = decoder.unpack());
+            assert(unpackStatus[0] == RANDOM_MESSAGE_ACTION);
+            assert(unpackStatus[1] == RANDOM_MESSAGE_ID);
+            assert(Object.keys(unpackStatus[2]).length == 0);
+        });
+    });
+
+    describe("_getBuffersLength", () => {
+        //
+        // Set up encoded message
+        const messageDataKey = "data is a string";
+        const messageDataValue = "a string";
+        let messagePack;
+        beforeEach(() => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.add(messageDataKey, messageDataValue);
+            messagePack = message.pack();
+        });
+
+        test("Retrieve length", () => {
+            const decoder = new MessageDecoder(messagePack);
+            let length;
+            assert.doesNotThrow(() => length = decoder._getBuffersLength());
+            assert(length == 48);
+        });
+
+        test("Retrieve length for null buffers", () => {
+            const decoder = new MessageDecoder(messagePack);
+            decoder.buffers = null;
+            let length;
+            assert.doesNotThrow(() => length = decoder._getBuffersLength());
+            assert(length == 0);
+        });
+    });
+
+    describe("_getRemainingLength", () => {
+        //
+        // Set up encoded message
+        const messageDataKey = "data is a string";
+        const messageDataValue = "a string";
+        let messagePack;
+        beforeEach(() => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.add(messageDataKey, messageDataValue);
+            messagePack = message.pack();
+        });
+
+        test("Retrieve remaining length", () => {
+            const decoder = new MessageDecoder(messagePack);
+            let length;
+            assert.doesNotThrow(() => length = decoder._getRemainingLength());
+            assert(length == 48);
+        });
+
+        test("Retrieve remaining length when position is negative", () => {
+            const decoder = new MessageDecoder(messagePack);
+
+            // Hijack position data
+            decoder.position = -1;
+
+            let length;
+            assert.throws(() => length = decoder._getRemainingLength(), /[AssertionError: false == true]/);
+            assert(length == undefined);
+        });
+    });
+
+    describe("_readData", () => {
+        //
+        // Set up encoded message
+        const messageDataKey = "data is a string";
+        const messageDataValue = "a string";
+        let messagePack;
+        beforeEach(() => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.add(messageDataKey, messageDataValue);
+            messagePack = message.pack();
+        });
+
+        test("Zero position", () => {
+            const decoder = new MessageDecoder(messagePack);
+            let data;
+            assert.doesNotThrow(() => data = decoder._readData(0, 10));
+            assert(data != null);
+            assert(data.length == 10);
+        });
+
+        test("Positive position", () => {
+            const decoder = new MessageDecoder(messagePack);
+            let data;
+            assert.doesNotThrow(() => data = decoder._readData(1, 10));
+            assert(data != null);
+            assert(data.length == 10);
+        });
+
+        test("Big positive position", () => {
+            const decoder = new MessageDecoder(messagePack);
+            let data;
+            assert.doesNotThrow(() => data = decoder._readData(1000, 10));
+            assert(data == null);
+        });
+
+        test("Negative position", () => {
+            const decoder = new MessageDecoder(messagePack);
+            let data;
+            assert.doesNotThrow(() => data = decoder._readData(-1, 10));
+            assert(data == null);
+        });
+
+        test("Positive length", () => {
+            const decoder = new MessageDecoder(messagePack);
+            let data;
+            assert.doesNotThrow(() => data = decoder._readData(1, 1));
+            assert(data != null);
+            assert(data.length == 1);
+        });
+
+        test("Negative length", () => {
+            const decoder = new MessageDecoder(messagePack);
+            let data;
+            assert.doesNotThrow(() => data = decoder._readData(1, -1));
+            assert(data != null);
+            assert(data.length == 0);
+        });
+
+        test("Big positive length", () => {
+            const decoder = new MessageDecoder(messagePack);
+            let data;
+            assert.doesNotThrow(() => data = decoder._readData(1, 1000));
+            assert(data == null);
+        });
+
+        test("Zero length", () => {
+            const decoder = new MessageDecoder(messagePack);
+            let data;
+            assert.doesNotThrow(() => data = decoder._readData(1, 0));
+            assert(data != null);
+            assert(data.length == 0);
+        });
+
+        test("Null buffers data", () => {
+            const decoder = new MessageDecoder(messagePack);
+
+            // Invalidate buffers data
+            decoder.buffers = null;
+
+            let data;
+            assert.doesNotThrow(() => data = decoder._readData(1, 1));
+            assert(data == null);
+        });
+
+        test("Undefined buffers data", () => {
+            const decoder = new MessageDecoder(messagePack);
+
+            // Invalidate buffers data
+            decoder.buffers = undefined;
+
+            let data;
+            assert.doesNotThrow(() => data = decoder._readData(1, 1));
+            assert(data == null);
+        });
+    });
+
+    describe("_next", () => {
+        //
+        // Set up encoded message
+        const messageDataKey = "data is a string";
+        const messageDataValue = "a string";
+        let messagePack;
+        beforeEach(() => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.add(messageDataKey, messageDataValue);
+            messagePack = message.pack();
+        });
+
+        test("Negative position", () => {
+            const decoder = new MessageDecoder(messagePack);
+
+            // Alter position
+            decoder.position = -1;
+
+            let data;
+            assert.doesNotThrow(() => data = decoder._next(), /[AssertionError: false == true]/);
+            assert(data == null);
+        });
+
+        test("Failure reading buffer", () => {
+            const decoder = new MessageDecoder(messagePack);
+            decoder.init();
+
+            // Invalidate buffer
+            decoder.buffers = null;
+
+            let data;
+            assert.doesNotThrow(() => data = decoder._next());
+            assert(data == null);
+        });
+
+        test("Failure reading key buffer", () => {
+            const decoder = new MessageDecoder(messagePack);
+            decoder.init();
+
+            // Invalidate buffer
+            decoder.buffers[1].writeUInt32LE(2556, 1);
+
+            let data;
+            assert.doesNotThrow(() => data = decoder._next());
+            assert(data == null);
+        });
+
+        test("Read object", () => {
+            const decoder = new MessageDecoder(messagePack);
+            decoder.init();
+            let type, key, data;
+
+            assert(decoder.position == 20);
+            assert.doesNotThrow(() => [type, key, data] = decoder._next());
+            assert(decoder.position == 48);
+
+            assert(type != null);
+            assert(key != null);
+            assert(data != null);
+            assert(type == TYPE_UTF8STRING);
+            assert(key == messageDataKey);
+            assert(data == messageDataValue);
+        });
+    });
+
+    describe("_hasNext", () => {
+        //
+        // Set up encoded message
+        const messageDataKey = "data is a string";
+        const messageDataValue = "a string";
+        let messagePack;
+        beforeEach(() => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.add(messageDataKey, messageDataValue);
+            messagePack = message.pack();
+        });
+
+        test("Read state", () => {
+            const decoder = new MessageDecoder(messagePack);
+            decoder.init();
+            let hasNext;
+            assert.doesNotThrow(() => hasNext = decoder._hasNext());
+            assert(hasNext == true);
+        });
+
+        test("Fail to read state due to bad buffer", () => {
+            const decoder = new MessageDecoder(messagePack);
+            decoder.init();
+
+            // Invalidate buffer
+            decoder.buffers = null;
+
+            let hasNext;
+            assert.doesNotThrow(() => hasNext = decoder._hasNext());
+            assert(hasNext == false);
+        });
+
+        test("Read state from uninitialized decoder", () => {
+            const decoder = new MessageDecoder(messagePack);
+            let hasNext;
+            assert.doesNotThrow(() => hasNext = decoder._hasNext());
+            assert(hasNext == false);
+        });
+
+    });
+
+    describe("_getAction", () => {
+        //
+        // Set up encoded message
+        const messageDataKey = "data is a string";
+        const messageDataValue = "a string";
+        let messagePack;
+        beforeEach(() => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.add(messageDataKey, messageDataValue);
+            messagePack = message.pack();
+        });
+
+        test("Retrieve current action", () => {
+            const decoder = new MessageDecoder(messagePack);
+            decoder.init();
+            let action;
+            assert.doesNotThrow(() => action = decoder._getAction());
+            assert(action == RANDOM_MESSAGE_ACTION);
+        });
+
+        test("Retrieve uninitialized action", () => {
+            const decoder = new MessageDecoder(messagePack);
+            let action;
+            assert.doesNotThrow(() => action = decoder._getAction());
+            assert(action == null);
+        });
+    });
+
+    describe("_getId", () => {
+        //
+        // Set up encoded message
+        const messageDataKey = "data is a string";
+        const messageDataValue = "a string";
+        let messagePack;
+        beforeEach(() => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.add(messageDataKey, messageDataValue);
+            messagePack = message.pack();
+        });
+
+        test("Retrieve current id", () => {
+            const decoder = new MessageDecoder(messagePack);
+            decoder.init();
+            let id;
+            assert.doesNotThrow(() => id = decoder._getId());
+            assert(id == RANDOM_MESSAGE_ID);
+        });
+
+        test("Retrieve uninitialized id", () => {
+            const decoder = new MessageDecoder(messagePack);
+            let id;
+            assert.doesNotThrow(() => id = decoder._getId());
+            assert(id == null);
+        });
+    });
+
+    describe("getLength", () => {
+        //
+        // Set up encoded message
+        const messageDataKey = "data is a string";
+        const messageDataValue = "a string";
+        let messagePack;
+        beforeEach(() => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.add(messageDataKey, messageDataValue);
+            messagePack = message.pack();
+        });
+
+        test("Retrieve length", () => {
+            const decoder = new MessageDecoder(messagePack);
+            decoder.init();
+            let length;
+            assert.doesNotThrow(() => length = decoder.getLength());
+            assert(length == 28);
+        });
+
+        test("Retrieve length of uninitialized decoder", () => {
+            const decoder = new MessageDecoder(messagePack);
+            let length;
+            assert.doesNotThrow(() => length = decoder.getLength());
+            assert(length == null);
+        });
+    });
+
+    describe("drain", () => {
+        //
+        // Set up encoded message
+        const messageDataKey = "data is a string";
+        const messageDataValue = "a string";
+        let messagePack;
+        beforeEach(() => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            message.add(messageDataKey, messageDataValue);
+            messagePack = message.pack();
+        });
+
+        test("Drain to zero", () => {
+            const decoder = new MessageDecoder(messagePack);
+            decoder.init();
+            assert(decoder.position == 20);
+            assert.doesNotThrow(() => decoder._drain());
+            assert(decoder.position == 0);
+        });
+
+        test("Nothing to drain", () => {
+            const decoder = new MessageDecoder(messagePack);
+            assert(decoder.position == 0);
+            assert.doesNotThrow(() => decoder._drain());
+            assert(decoder.position == 0);
+        });
+
+        test("Invalid buffers", () => {
+            const decoder = new MessageDecoder(messagePack);
+            decoder.init();
+            decoder.buffers = null;
+            assert(decoder.position == 20);
+            assert.throws(() => decoder._drain(), /[AssertionError: Expecting this.buffers to have been previously initialized]/);
+            assert(decoder.position == 20);
+        });
+
+        test("Big buffers", () => {
+            const decoder = new MessageDecoder(messagePack);
+            decoder.init();
+            decoder.buffers = [Buffer.alloc(1024)];
+            assert(decoder.position == 20);
+            assert.doesNotThrow(() => decoder._drain());
+            assert(decoder.position == 0);
         });
     });
 
