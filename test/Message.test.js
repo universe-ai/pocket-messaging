@@ -1889,17 +1889,4 @@ describe("MessageDecoder", () => {
             assert(decoder.position == 0);
         });
     });
-
-    // TODO: FIXME:
-    test.skip("WIP", () => {
-        const decoder = new MessageDecoder(messagePack);
-        assert(decoder.init());
-        assert(decoder.isReady());
-        const messageDecoded = decoder.unpack();
-
-        assert(messageDecoded[0] == RANDOM_MESSAGE_ACTION);
-        assert(messageDecoded[1] == RANDOM_MESSAGE_ID);
-        assert(Object.keys(messageDecoded[2])[0] == messageDataKey);
-        assert(messageDecoded[2][messageDataKey] == messageDataValue);
-    });
 });
