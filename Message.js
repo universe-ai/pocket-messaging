@@ -25,7 +25,7 @@
  * Total length given in the message header (L) can then be defined as:
  * L = (number of objects * object header length) + all objects key and data body
  *
- * If an object key is prefixed by the '^' character, then the object is attached to the last decoded object.
+ * If an object key is prefixed by the '^' character, then the object is associated with the previously encoded object (last object). During decoding the associated objects are expected to be attached to that last object (hierarchy).
  * If an object key is suffixed by the "[]" characters, then the object is attached to an array named after the key.
  * If there was no previous object then the decoding is aborted.
  */
@@ -241,8 +241,7 @@ class MessageEncoder
      */
     getMsgId()
     {
-        // Expects the messageId to have been set in the constructor
-        assert(this.messageId);
+        assert(this.messageId, "Expecting messageId to have been set in the constructor");
         return this.messageId.toString("hex");
     }
 
@@ -758,7 +757,7 @@ class MessageDecoder
         pos = pos + 4;
         this.length = buffer.readUInt32LE(pos);
         pos = pos + 4;
-        assert(pos == MESSAGE_FRAME_LENGTH);
+        assert(pos == MESSAGE_FRAME_LENGTH, "Expecting pos manipulation to match message frame length");
 
         const actionBuffer = this._readData(this.position + pos, actionLength);
         if (!actionBuffer) {
@@ -794,7 +793,7 @@ class MessageDecoder
      * @throws Exception is thrown when object has not been previously initialized.
      * @throws Exception is thrown when a failure occurs during the message unpacking process, such as errors during parsing.
      * @throws Exception is thrown when an unexpected data type is present in the message to be unpacked.
-     * @return {Array<{string} action, {string} messageId, {Object} props> | null}
+     * @return {Array<{string | null} action, {string | null} messageId, {Object} props> | null}
      *  action is the given action or the message ID if the message is a reply message.
      *  messageId is the message's ID.
      *  props are the object containing the key value properties.
@@ -896,25 +895,33 @@ class MessageDecoder
     }
 
     /**
-     * Return the total length of the buffers in the array.
+     * @returns the current total length of the buffers in the array.
      */
     _getBuffersLength()
     {
         let count = 0;
-        this.buffers.forEach( buffer => count = count + buffer.length );
+        if (this.buffers) {
+            this.buffers.forEach( buffer => count = count + buffer.length );
+        }
         return count;
     }
 
     /**
-     * Get the length which is remaining in the buffers after the current position.
+     * @return the length which is remaining in the buffers after the current position.
      */
     _getRemainingLength()
     {
+        assert(this.position >= 0, "Expecting this.position to be a positive number");
         return this._getBuffersLength() - this.position;
     }
 
     /**
      * Read data from the buffers.
+     *
+     * @param {number} position - offset to start reading from.
+     * @param {number} length - total length to be read, in bytes.
+     * @returns On success, Buffer containing the data.
+     *  On error, returns null.
      */
     _readData(position, length)
     {
@@ -948,8 +955,11 @@ class MessageDecoder
     }
 
     /**
-     * Return the next object in the message buffers.
-     * This function expects there to be data available.
+     * Retrieves the next object available in the buffers.
+     * Note: This function expects there to be data available.
+     *
+     * @returns the next object in the message buffers.
+     * On error, return null.
      */
     _next()
     {
@@ -966,6 +976,8 @@ class MessageDecoder
 
         const objectLength = buffer.slice(pos, pos + 2).readUInt16LE();
         pos = pos + 2;
+
+        assert(pos == OBJECT_FRAME_LENGTH, "Expecting pos manipulation to match object frame length");
 
         const keyBuffer = this._readData(this.position + pos, keyLength);
         if (!keyBuffer) {
@@ -1001,7 +1013,7 @@ class MessageDecoder
 
     /**
      * Return the action of the message header.
-     * @return {string}
+     * @return {string | null}
      */
     _getAction()
     {
@@ -1010,16 +1022,20 @@ class MessageDecoder
 
     /**
      * Return the message id of the message header in hex format.
-     * @return {string}
+     * @return {string | null}
      */
     _getId()
     {
-        return this.messageId.toString("hex");
+        let id = null;
+        if(this.messageId) {
+            id = this.messageId.toString("hex");
+        }
+        return id;
     }
 
     /**
      * Return the message length given in the message header.
-     * @return {number}
+     * @return {number | null}
      */
     getLength()
     {
@@ -1031,6 +1047,9 @@ class MessageDecoder
      */
     _drain()
     {
+        assert(this.buffers, "Expecting this.buffers to have been previously initialized");
+        assert(this.buffers[0], "Expecting this.buffers[0] to have been filled before");
+
         let bytesToDrain = this.position;
         while (bytesToDrain > 0) {
             const l = this.buffers[0].length;
