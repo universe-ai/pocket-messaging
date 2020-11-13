@@ -83,8 +83,7 @@ describe("General", () => {
         assert(packedBuffers.length === 5);
     });
 
-    // TODO: FIXME:
-    test.skip("test_details", () => {
+    test("test_details", () => {
         const a = Buffer.from("alpha");
         const b = Buffer.from("beta");
         const c = Buffer.from("gamma");
@@ -102,17 +101,15 @@ describe("General", () => {
         const out = message._readData(0, message._getRemainingLength());
         assert(out.compare(buffer.slice(3)) === 0);
 
-        const hex = "00a500000073796e6300000000000000000000000064336432613734630104000000646f53796e630000000000000000000074727565012200000062617463684964000000000000000000223530626339366538356438333335313661623138633831313365663338353238220108000000737562736372696265547970650000002273747265616d22012300000073796e63507265666572656e636573007b22626c6f624d696e496e646578223a302c22626c6f624d6178496e646578223a397d";
+        const hex = "00ff70fceb711a0000005f297c5057414331483e1b0656306e1c2b063975665a5b2d123b590b4802210672057208264b7a0a6b7a7d471e344f280e5f54263e3369646c5f194b456b777d1a2f3a68305f2c643f793258334a0f2d536b39457c1e0a3d15393b140e1a37025c0a5e24257a737f4f0c6002535a0402065160637376155819026f4b2b5118164940323611115104674e6c6c09253e694d49562c741c730a4b174f5172037e27582a58653a76392f7220663d004c4c575d046549240d62523c654a2e0b213110356c105b320f61641c133056657d1d087d7e5f055478750a09720e426616323a585d422e2d69175e69152a007c0d337265724e7f64697078517a37160223031e0e08006461746120697320737472696e676120737472696e67";
         const A = Buffer.from(hex, "hex");
         message = new MessageDecoder([A]);
         assert(message.init());
         assert(message.isReady());
-        assert(message.getLength() === 165);
-        const triple = message.unpack();
-        assert(triple[0] === "sync");
-        assert(triple[1] === "d3d2a74c");
-        assert(triple[2]["doSync"] === true);
-        //console.log(triple);
+        assert(message.getLength() === 26);
+        const data = message.unpack();
+        assert(data[1] === "70fceb71");
+        assert(data[2]["data is string"] === "a string");
 
         // TODO: we could add even more boundaries testing to see that it behaves well passing
         // over different buffers.
@@ -144,10 +141,8 @@ describe("General", () => {
         packedBuffers = newMessage.pack();
         assert(packedBuffers.length === 11);
 
-        // TODO: want to test when passing wrong value types and also that reading back when unpacked yields the correct type.
         newMessage.addBoolean("isReady", false);
-        //TODO: FIXME: unpack new TYPE_NULL field
-        //newMessage.addString("name", null);
+        newMessage.addString("name", null);
         newMessage.addString("token", "Skipabit");
         newMessage.addNumber("cost", 123456);
         newMessage.addArray("inventory", []);
@@ -155,23 +150,23 @@ describe("General", () => {
 
         newMessage.addObject("chopper", {model: "BumbleBeeMagnum"});
         packedBuffers = newMessage.pack();
-        //assert(packedBuffers.length === 21);
+        assert(packedBuffers.length === 25);
 
         let readMessage = new MessageDecoder(packedBuffers);
         assert(readMessage.init());
         assert(readMessage.isReady());
         let data = readMessage.unpack();
 
-        // TODO: FIXME: assert instead of logging
-        //console.log(data);
         assert(data[0] === "myAction");
         assert(data[1] === "abba4e14");
+        assert(data[2].token === "Skipabit");
+        assert(data[2].cost === 123456);
+        assert(data[2].inventory.length === 0);
         assert(data[2].chopper.model === "BumbleBeeMagnum");
         assert(data[2].microfile !== null);
         assert(data[2].person[0].name === "McRaminov");
         assert(data[2].person[0].microfilm.length === 2);
-        // TODO: FIXME: assert instead of logging
-        //console.log(data[2]);
+        assert(data[2].person[1].name === "Captain Loose");
 
         // Test complex
         let cMessage = new MessageEncoder("myComplexAction", "deadbeef");
@@ -189,7 +184,9 @@ describe("General", () => {
         assert(readMessage.init());
         assert(readMessage.isReady());
         data = readMessage.unpack();
-        //console.log("read complex", data[2]);
+
+        assert(data[2].person[0].name === "Ridge Raft");
+        assert(data[2].person[1].name === "Another");
 
         cMessage = new MessageEncoder("myComplexAction", "deadbeef");
         cMessage.addProps(data[2]);
@@ -198,7 +195,11 @@ describe("General", () => {
         assert(readMessage.init());
         assert(readMessage.isReady());
         data = readMessage.unpack();
-        //console.log("read complex", data[2]);
+
+        assert(data[0] === "myComplexAction");
+        assert(data[1] === "deadbeef");
+        assert(data[2].person[0].name === "Ridge Raft");
+        assert(data[2].person[1].name === "Another");
     });
 });
 
