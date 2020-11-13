@@ -330,7 +330,7 @@ class MessageEncoder
      * Add serializable string data.
      *
      * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object. If an object key is suffixed with "[]", then the object is attached to an array named after the key.
-     * @param {string} string - String encoded in UTF-8 to be added.
+     * @param {string | null} string - String encoded in UTF-8 to be added.
      * @throws Errors are expected to be thrown when either the key or the string value are not in the expected type format.
      *  An exception will be thrown when the buffer data length created from the input string is greater than MAX_OBJECT_DATA_SIZE.
      *  An exception will be thrown when key length is bigger than KEY_LENGTH.
@@ -753,9 +753,9 @@ class MessageDecoder
         pos = pos + 1;
         const actionLength = buffer.readUInt8(pos);
         pos = pos + 1;
-        this.messageId = buffer.slice(pos, pos + 4);
+        const messageId = buffer.slice(pos, pos + 4);
         pos = pos + 4;
-        this.length = buffer.readUInt32LE(pos);
+        const length = buffer.readUInt32LE(pos);
         pos = pos + 4;
         assert(pos == MESSAGE_FRAME_LENGTH, "Expecting pos manipulation to match message frame length");
 
@@ -764,6 +764,8 @@ class MessageDecoder
             return false;
         }
 
+        this.messageId = messageId
+        this.length = length;
         this.action = actionBuffer.toString("utf8");
         pos = pos + actionLength;
 
@@ -848,7 +850,7 @@ class MessageDecoder
                     object = buffer.readUInt32LE();
                 }
                 else if (type === TYPE_NULL) {
-                    object = buffer.toString();
+                    object = null;
                 }
                 else if (type === TYPE_TEXTNUMBER) {
                     object = Number(buffer.toString());
@@ -1068,6 +1070,6 @@ class MessageDecoder
 module.exports =
 {
     MessageEncoder, MessageDecoder,
-    MAX_MESSAGE_SIZE, MAX_OBJECT_DATA_SIZE, KEY_LENGTH, MESSAGE_FRAME_LENGTH, OBJECT_FRAME_LENGTH,
+    MAX_MESSAGE_SIZE, MAX_OBJECT_DATA_SIZE, KEY_LENGTH, MESSAGE_FRAME_LENGTH, OBJECT_FRAME_LENGTH, MESSAGE_ID_LENGTH,
     TYPE_UINT8, TYPE_INT8, TYPE_UINT16, TYPE_INT16, TYPE_UINT32, TYPE_INT32, TYPE_TEXTNUMBER, TYPE_UTF8STRING
 };
