@@ -1,22 +1,3 @@
-//TODO: FIXME: unused ?
-/*const {BlobFactory,
-    Blob,
-    BlobPending,
-    BlobPendingSignature} = require("../datamodel/Blob");*/
-
-//TODO: FIXME: unused ?
-/*
-const {NodeFactory,
-    Node,
-    NodePending,
-    NodePendingSignature} = require("../datamodel/Node");*/
-
-//TODO: FIXME: unused ?
-//const Receipt = require("../datamodel/Receipt");
-//TODO: FIXME: unused ?
-//const Buf = require("../util/buf.js");
-//TODO: FIXME: unused ?
-//const ed25519 = require("../util/ed25519");
 const
 {
     MessageDecoder, MessageEncoder,
