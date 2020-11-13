@@ -359,7 +359,7 @@ class MessageEncoder
      * Add serializable number data.
      *
      * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object. If an object key is suffixed with "[]", then the object is attached to an array named after the key.
-     * @param {number} number - Number data to be added.
+     * @param {number | null} number - Number data to be added.
      * @throws Errors are expected to be thrown when either the key or the value are not in the expected type format.
      *  An exception will be thrown when key length is bigger than KEY_LENGTH.
      */
@@ -369,21 +369,25 @@ class MessageEncoder
             throw "Key must be string";
         }
 
-        if (number === undefined || number === null || !(typeof number === "number")) {
-            throw "Expecting number";
-        }
+        if (number === null) {
+            this.addNull(key);
+        } else {
+            if (number === undefined || !(typeof number === "number")) {
+                throw "Expecting number";
+            }
 
-        const [type, buffer] = this._packNumber(number);
-        const objectHeader = this._createObjectHeader(type, buffer.length, key);
-        this.buffers.push(objectHeader);
-        this.buffers.push(buffer);
+            const [type, buffer] = this._packNumber(number);
+            const objectHeader = this._createObjectHeader(type, buffer.length, key);
+            this.buffers.push(objectHeader);
+            this.buffers.push(buffer);
+        }
     }
 
     /**
      * Add serializable boolean data.
      *
      * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object. If an object key is suffixed with "[]", then the object is attached to an array named after the key.
-     * @param {boolean} boolean - Boolean data to be added.
+     * @param {boolean | null} boolean - Boolean data to be added.
      * @throws Errors are expected to be thrown when either the key or the value are not in the expected type format.
      *  An exception will be thrown when key length is bigger than KEY_LENGTH.
      */
@@ -393,15 +397,19 @@ class MessageEncoder
             throw "Key must be string";
         }
 
-        if (boolean === undefined || boolean === null || !(typeof boolean === "boolean")) {
-            throw "Expecting boolean";
-        }
+        if (boolean === null) {
+            this.addNull(key);
+        } else {
+            if (boolean === undefined || !(typeof boolean === "boolean")) {
+                throw "Expecting boolean";
+            }
 
-        const buffer = Buffer.alloc(1);
-        buffer.writeUInt8(boolean ? 1 : 0);
-        const objectHeader = this._createObjectHeader(TYPE_BOOLEAN, buffer.length, key);
-        this.buffers.push(objectHeader);
-        this.buffers.push(buffer);
+            const buffer = Buffer.alloc(1);
+            buffer.writeUInt8(boolean ? 1 : 0);
+            const objectHeader = this._createObjectHeader(TYPE_BOOLEAN, buffer.length, key);
+            this.buffers.push(objectHeader);
+            this.buffers.push(buffer);
+        }
     }
 
     /**
@@ -440,7 +448,7 @@ class MessageEncoder
      * will be missed and serialized in ways which we this class cannot restore, so do not do that.
      *
      * @param {string} key - prefix key with a "^" to put it on the previously added object as an attribute rather than on the top object. If an object key is suffixed with "[]", then the object is attached to an array named after the key.
-     * @param {Object} object - Object data to be added.
+     * @param {Object | null} object - Object data to be added.
      * @throws Errors are expected to be thrown when either the key or the value are not in the expected type format.
      *  An exception will be thrown when key length is bigger than KEY_LENGTH.
      */
@@ -450,29 +458,33 @@ class MessageEncoder
             throw "Key must be string";
         }
 
-        if ((object === undefined || object === null) || !(typeof object === "object" && Array.isArray(object) === false)) {
-            throw "Expecting Object";
+        if (object === null) {
+            this.addNull(key);
+        } else {
+            if (object === undefined || !(typeof object === "object" && Array.isArray(object) === false)) {
+                throw "Expecting Object";
+            }
+
+            // Filter out the Buffer objects and add them as binaries.
+            const buffers = [];
+            const object2 = {};
+            Object.keys(object).forEach( key => {
+                const value = object[key];
+                if (value instanceof Buffer) {
+                    buffers.push([key, value]);
+                }
+                else {
+                    object2[key] = value;
+                }
+            });
+
+            this.addJSON(key, JSON.stringify(object2));
+
+            buffers.forEach( tuple => {
+                const [key, buffer] = tuple;
+                this.addBinary(`^${key}`, buffer);
+            });
         }
-
-        // Filter out the Buffer objects and add them as binaries.
-        const buffers = [];
-        const object2 = {};
-        Object.keys(object).forEach( key => {
-            const value = object[key];
-            if (value instanceof Buffer) {
-                buffers.push([key, value]);
-            }
-            else {
-                object2[key] = value;
-            }
-        });
-
-        this.addJSON(key, JSON.stringify(object2));
-
-        buffers.forEach( tuple => {
-            const [key, buffer] = tuple;
-            this.addBinary(`^${key}`, buffer);
-        });
     }
 
     /**
