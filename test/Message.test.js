@@ -20,15 +20,14 @@ const {NodeFactory,
 const
 {
     MessageDecoder, MessageEncoder,
-    MAX_MESSAGE_SIZE, MAX_OBJECT_DATA_SIZE, KEY_LENGTH, MESSAGE_FRAME_LENGTH, OBJECT_FRAME_LENGTH,
+    MAX_MESSAGE_SIZE, MAX_OBJECT_DATA_SIZE, KEY_LENGTH, MESSAGE_FRAME_LENGTH, OBJECT_FRAME_LENGTH, MESSAGE_ID_LENGTH,
     TYPE_UINT8, TYPE_INT8, TYPE_UINT16, TYPE_INT16, TYPE_UINT32, TYPE_INT32, TYPE_TEXTNUMBER, TYPE_UTF8STRING
 } = require("../Message.js");
 const assert = require("assert");
 const crypto = require("crypto");
 
 describe("General", () => {
-    // TODO: FIXME:
-    test.skip("test_basics", () => {
+    test("test_basics", () => {
         const ID_LENGTH = 16;
         const messageFrameLength = 1 + 4 + ID_LENGTH * 2;
         const objectFrameLength = 1 + 4 + ID_LENGTH;
@@ -54,9 +53,7 @@ describe("General", () => {
         pos = pos + ID_LENGTH;
         messageFrame.write(messageId, pos);
         buffers.push(messageFrame);
-
-        assert(message.init());
-        assert(message.isReady() === false);
+        assert(message.init() == false);
 
         // Write the object frame
         const objectKey = "data";
@@ -69,10 +66,8 @@ describe("General", () => {
         objectFrame.write(objectKey, pos);
         pos = pos + ID_LENGTH;
         buffers.push(objectFrame);
-        assert(message.isReady() === false);
         buffers.push(objectData);
-        assert(message.isReady());
-
+        assert(message.init() == true);
         const decoded = message.unpack();
 
         const newMessage = new MessageEncoder("myAction", "abba4e14");
@@ -1052,6 +1047,26 @@ describe("MessageDecoder", () => {
             assert(initStatus == false);
         });
 
+        test("Action buffer is missing", () => {
+            const buffers = [];
+            const message = new MessageDecoder(buffers);
+            const objectData = Buffer.alloc(32).fill(3);
+            const messageAction = "hello";
+            const messageId = "ABCDEFGH";
+            const messageFrame = Buffer.alloc(MESSAGE_FRAME_LENGTH);
+            let pos = 0;
+            messageFrame.writeUInt8(0, pos);
+            pos = pos + 1;
+            const messageLength = objectData.length + OBJECT_FRAME_LENGTH;
+            messageFrame.writeUInt32LE(messageLength, pos);
+            pos = pos + 4;
+            messageFrame.write(messageAction, pos);
+            pos = pos + MESSAGE_ID_LENGTH;
+            messageFrame.write(messageId, pos);
+            buffers.push(messageFrame);
+            assert(message.init() == false);
+        });
+
         test("Action buffer is unset", () => {
             const decoder = new MessageDecoder(messagePack);
             let counter;
@@ -1415,7 +1430,7 @@ describe("MessageDecoder", () => {
             assert(unpackStatus[0] == RANDOM_MESSAGE_ACTION);
             assert(unpackStatus[1] == RANDOM_MESSAGE_ID);
             assert(unpackStatus[2].hasOwnProperty("regular key"));
-            assert(unpackStatus[2]["regular key"] == "");
+            assert(unpackStatus[2]["regular key"] == null);
         });
 
         test("Data is big negative number", () => {
