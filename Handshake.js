@@ -9,7 +9,10 @@
  *
  * This handshake has a focus on privacy hence the six step handshake.
  *
- * WARNING: This code is not properly vetted yet.
+ * WARNING: THIS CODE IS NOT PROPERLY VETTED YET.
+ *          ONLY VALUES ARE ENCRYPTED, LEAVING OTHER MESSAGE DATA SUCH AS KEY NAMES UNENCRYPTED, WHICH COULD BE EXPLOITABLE,
+ *          SO WE NEED TO UP THE GAME ON THAT PART.
+ *          WE COULD SOLVE THIS BY ADDING SUPPORT OF SYMMETRIC ENCRYPTION TO THE MESSAGECOMM AND ENABLE THAT ALREADY FROM STEP 2.
  *
  * The Server will only reveal its identity as long as the Client already knows it.
  * The Client will only reveal its identity to the Server with the idenity it is expecting to connect to.
@@ -18,12 +21,12 @@
  *
  * 1.  Server creates SHARED_SECRET token.
  *     Send token to Client.
- * 
+ *
  * 2.  Client read token.
  *     message         = <generate 32 random bytes>
  *     challenge       = symEncrypt(message, token)
  *     Send challenge to Server.
- * 
+ *
  * 3.  Server reads challenge.
  *     message         = symDecrypt(challenge, token)
  *     signedMessage   = ed25519Wrapper.sign(message, serverKeys)
@@ -37,8 +40,8 @@
  *     innerEncrypt     = symEncrypt(innerEncrypt, token)
  *     clientEncKey     = symEncrypt(clientEncKey, token)
  *     signedMessage2   = ed25519Wrapper.sign(token, ClientKeys)
- *     Send (clientPubKey, parameters, signedMessage2) to Server
- * 
+ *     Send (clientPubKey, parameters, innerEncrypt, clientEncKey, signedMessage2) to Server
+ *
  * 5.  Server reads (clientPubKey, parameters, clientEncKey, signedMessage2).
  *     clientPubKey     = symDecrypt(clientPubKey, token)
  *     parameters       = symDecrypt(parameters, token)
@@ -48,16 +51,17 @@
  *     Server has now learnt the Client's identity.
  *     matchPreferences(parameters, innerEncrypt)
  *
- *     !isValid ? close socket : send ACK
+ *     if !isValid then close socket
  *     Server send ack:
- *     ack              = true
- *     innerEncrypt     = integer
+ *     innerEncrypt     = symEncrypt(innerEncrypt, token)
  *     serverEncKey     = symEncrypt(serverEncKey, token)
+ *     sharedParams     = symEncrypt(sharedParams, token)
+ *     Send (innerEncrypt, serverEncKey, sharedParams)
  *
- * 6.  Client reads (ack, innerEncrypt, serverEncKey)
- *     ack              = read(ack)
- *     innerEncrypt     = read(innerEncrypt)
+ * 6.  Client reads (innerEncrypt, serverEncKey, sharedParams)
+ *     innerEncrypt     = symDecrypt(innerEncrypt, token)
  *     serverEncKey     = symDecrypt(serverEncKey, token)
+ *     sharedParams     = symDecrypt(sharedParams, token)
  */
 
 const ed25519 = require("../util/ed25519");
@@ -82,7 +86,7 @@ const nacl = require("tweetnacl");
  * @param {MessageComm} messageComm should be corked.
  * @param {string} serverPubKey expected public key of server
  * @param {Object} keyPair client keypair
- * @param {string | Buffer} parameters sent to server for matching handshake preferecens
+ * @param {string | Buffer} parameters client parameters sent to server for matching handshake preferecens
  * @param {number} innerEncryption level. 0 = auto, 1 = require
  * @return {Array<innerEncrypt, keyPair, serverEncKey> | null} null means failed handshake,
  *  innerEncrypt is the agreed upon inner encryption level, 0=no encryption, 1=use encryption
@@ -137,7 +141,7 @@ async function AsClient(messageComm, serverPubKey, keyPair, parameters, innerEnc
         messageComm.uncork(1);
 
         const message2 = new MessageEncoder(asyncRet1.msgId());
-        message2.addBinary("parameters",          toBuffer(parametersEnc));
+        message2.addBinary("parameters",        toBuffer(parametersEnc));
         message2.addBinary("innerEncrypt",      toBuffer(innerEncrypt));
         message2.addBinary("clientPubKey",      toBuffer(clientPubKey));
         message2.addString("signedMessage2",    signedMessage2);
@@ -150,15 +154,14 @@ async function AsClient(messageComm, serverPubKey, keyPair, parameters, innerEnc
             throw "Could not proceed in 6";
         }
 
+        // If we come here server has ACK'd.
         const props2 = asyncRet2.getProps();
-        if (props2["ack"] !== true) {
-            throw "Not ACK'd";
-        }
 
-        const agreedUponInnerEncrypt    = props2["innerEncrypt"];
+        const agreedUponInnerEncrypt    = Number(symDecryptToString(props2["innerEncrypt"], token));
         const serverEncKey              = Crypt.symmetricDecrypt(props2["serverEncKey"], token);
+        const sharedParams              = symDecryptToString(props2["sharedParams"], token);
 
-        return [agreedUponInnerEncrypt, encKeyPair, toBuffer(serverEncKey)];
+        return [sharedParams, agreedUponInnerEncrypt, encKeyPair, toBuffer(serverEncKey)];
     }
     catch(e) {
         console.error(e);
@@ -214,15 +217,16 @@ function ReadRandomToken(messageComm)
 /**
  * @param {MessageComm} messageComm should be corked.
  * @param {Object} server keyPair
- * @param {Function} ServerAcceptKey
  * @param {Function} ServerMatchAccept
- * @return {Array<protocol, clientPubKey, rootNodeId, innerEncryption, keyPair, clientEncKey> | null}
+ * @return {Array<curatedServerParams:Object, sharedParams:string, clientPubKey:string, innerEncryption:Number, encKeyPair, clientEncKey:Buffer> | null}
  *  null means handshake was not successful.
+ *  curatedServerParams is the accepted curated params object from the servers accept params array.
+ *  sharedParams is a string passed to client, passed here for reference
  *  clientPubKey is the client's ID.
  *  innerEncrypt is the agreed upon inner encryption level, 0=no encryption, 1=use encryption
- *  keyPair and clientEncKey are session keys which can be used for transport encryption.
+ *  encKeyPair and clientEncKey are session keys which can be used for transport encryption.
  */
-async function AsServer(messageComm, keyPair, ServerAcceptKey, ServerMatchAccept)
+async function AsServer(messageComm, keyPair, ServerMatchAccept)
 {
     try {
         // STEP 1
@@ -267,7 +271,7 @@ async function AsServer(messageComm, keyPair, ServerAcceptKey, ServerMatchAccept
         }
         const props2            = asyncRet2.getProps();
         const clientPubKey      = symDecryptToString(props2["clientPubKey"], token);
-        const parameters        = symDecryptToString(props2["parameters"], token);
+        const clientParameters  = symDecryptToString(props2["parameters"], token);
         const innerEncrypt      = symDecryptToString(props2["innerEncrypt"], token);
         const clientEncKey      = Crypt.symmetricDecrypt(props2["clientEncKey"], token);
         if (! ed25519.verify(props2["signedMessage2"], token, clientPubKey)) {
@@ -275,19 +279,18 @@ async function AsServer(messageComm, keyPair, ServerAcceptKey, ServerMatchAccept
         }
 
         //
-        // Now check if the client is someone we allow to connect.
-        if (!await ServerAcceptKey(clientPubKey)) {
-            throw "Reject client public key";
-        }
+        // Match client public key and preferences with what server has to offer.
+        const matched = await ServerMatchAccept(clientPubKey, clientParameters, Number(innerEncrypt));
 
-        //
-        // Match client preferences with what server has to offer.
-        const [accepted, innerEncryption] = await ServerMatchAccept(clientPubKey, parameters, Number(innerEncrypt));
-
-        if (!accepted) {
+        if (!matched) {
             // No match
-            throw "Could not match client preferences";
+            throw "Could not match client public key or preferences.";
         }
+
+        const [curatedServerParams, sharedParams, innerEncryption] = matched;
+
+        const sharedParamsEnc       = Crypt.symmetricEncrypt(Buffer.from(sharedParams), token);
+        const innerEncryptionEnc    = Crypt.symmetricEncrypt(Buffer.from(String(innerEncryption)), token);
 
         // Generate encryption keypair.
         const encKeyPair        = nacl.box.keyPair();
@@ -295,14 +298,14 @@ async function AsServer(messageComm, keyPair, ServerAcceptKey, ServerMatchAccept
 
         // SEND ACK
         const message3 = new MessageEncoder(asyncRet2.msgId());
-        message3.addBoolean("ack", true);
-        message3.addNumber("innerEncrypt",  innerEncryption);
+        message3.addBinary("innerEncrypt",  toBuffer(innerEncryptionEnc));
         message3.addBinary("serverEncKey",  toBuffer(serverEncKey));
+        message3.addBinary("sharedParams",  toBuffer(sharedParamsEnc));
         const buffers3 = message3.pack();
         messageComm.send(buffers3);
 
         // All GOOD!
-        return [accepted, clientPubKey, innerEncryption, encKeyPair, toBuffer(clientEncKey)];
+        return [curatedServerParams, sharedParams, clientPubKey, innerEncryption, encKeyPair, toBuffer(clientEncKey)];
     }
     catch(e) {
         console.error(e);
