@@ -456,8 +456,8 @@ describe("MessageEncoder", () => {
         });
 
         test("Data is null", () => {
-            assert.throws(() => RANDOM_MESSAGE.addNumber("data is not number", null), /Expecting number/);
-            assert(RANDOM_MESSAGE.buffers.length == 0);
+            assert.doesNotThrow(() => RANDOM_MESSAGE.addNumber("data is not number", null));
+            assert(RANDOM_MESSAGE.buffers.length == (1*(1 + 1)));
         });
 
         test("Data is number", () => {
@@ -504,8 +504,8 @@ describe("MessageEncoder", () => {
         });
 
         test("Data is null", () => {
-            assert.throws(() => RANDOM_MESSAGE.addBoolean("data is not boolean", null), /Expecting boolean/);
-            assert(RANDOM_MESSAGE.buffers.length == 0);
+            assert.doesNotThrow(() => RANDOM_MESSAGE.addBoolean("data is not boolean", null));
+            assert(RANDOM_MESSAGE.buffers.length == (1*(1 + 1)));
         });
 
         test("Data is zero", () => {
@@ -609,8 +609,8 @@ describe("MessageEncoder", () => {
         });
 
         test("Data is null", () => {
-            assert.throws(() => RANDOM_MESSAGE.addObject("data is not object", null), /Expecting Object/);
-            assert(RANDOM_MESSAGE.buffers.length == 0);
+            assert.doesNotThrow(() => RANDOM_MESSAGE.addObject("data is not object", null));
+            assert(RANDOM_MESSAGE.buffers.length == (1*(1 + 1)));
         });
 
         test("Data is Array", () => {
