@@ -113,37 +113,85 @@ class AbstractAgent
         }
 
         /**
+         * This is the basic structures of server/client configurations.
+         * A deriving class should add impl specific "params" to the configs (see below).
+         *
          * config = {
          *  servers: [
+         *      // pub, priv keys of the server, ed25519.
          *      keyPair: {},
+         *
+         *      // Listener socket
          *      listen: {
          *         protocol: "tcp" | "websocket",
          *         host: "localhost",
          *         port: 8080,
          *         cert: // see AbstractServer for details
-         *         key:
+         *         key:  ^
          *      },
-         *  // A server object is passed to the matching functions.
          *
+         *      // Accept blocks for handshaking a newly connected client socket.
+         *      // This base class verifies keys, the derived class will need to add
+         *      // protocol specific parameters to match, if any.
+         *      accept: [
+         *          {
+         *              // Client public key received in handshake will be matched using
+         *              // this clientPubKey value.
+         *              // If a match is made then we proceed to matching client protocol
+         *              // preferences to the protocols defined below.
+         *              clientPubKey: <string | string[] | async Function(clientPubKey):boolean>,
+         *
+         *              // Optional arbitrary name, used for onConnected events
+         *              name: <string | undefined>
+         *
+         *              // Have the MessageComm perform encryption on data sent.
+         *              // This is useful when regular TLS is not available, or when TLS termination
+         *              // is done by a non-trusted part of the network.
+         *              // 0=don't require, 1=require message encryption,
+         *              // The reason is is a number and not a boolean is for possible added
+         *              // flexibility in the future with more options than on/off.
+         *              innerEncrypt: <number | null | undefined>,
+         *
+         *              params: [
+         *                  {
+         *                      <impl specific details here.
+         *                       these will be matched against the client params.>
+         *                  },
+         *              ],
+         *          },
+         *      ]
          *  ],
+         *
          *  clients: [
          *      {
-         *          serverPubKey: ""
+         *          // The client pub, priv keypair, ed25519.
          *          keyPair: {}
+         *
+         *          // Optional arbitrary name, used for onConnected events
+         *          name: <string | undefined>
+         *
+         *          // The ed25519 pub key of the server we are expecting to answer.
+         *          serverPubKey: "",
+         *
+         *          // Have the MessageComm perform encryption on data sent.
+         *          // This is useful when regular TLS is not available, or when TLS termination
+         *          // is done by a non-trusted part of the network, or when connecting via a non-trusted hub.
+         *          // 0=don't require, 1=require message encryption,
+         *          // The reason is is a number and not a boolean is for possible added
+         *          // flexibility in the future with more options than on/off.
+         *          innerEncrypt: <number | null | undefined>,
+         *
          *          connect: {
          *              // See AbstractClient for details.
          *              protocol: "tcp" | "websocket",
          *              host: "localhost",
          *              port: 8080,
-         *              reconnect: <boolean>
+         *              reconnect: <boolean | null | undefined>
          *          },
-         *          protocol: {
-         *              name: "",
-         *              innerEncrypt: <boolean>,
-         *              // Parameters put together by GetClientParameters() and passed to server matching function.
-         *              parameter1:
-         *              parameter2:
-         *              parameter3:
+         *
+         *          params: {
+         *              <impl specific params here, these will be matched against
+         *               the servers accept blocks>
          *          }
          *      }
          *  ]
@@ -160,11 +208,8 @@ class AbstractAgent
                 if (typeof server.keyPair !== "object") {
                     throw "keyPair must be provided.";
                 }
-                if (!Array.isArray(server.accept)) {
-                    throw "accept must be provided.";
-                }
                 if (typeof server.listen !== "object") {
-                    throw "listen must be provided.";
+                    throw "listen object must be provided.";
                 }
                 if (!server.listen.protocol) {
                     throw "listen.protocol must be provided.";
@@ -180,7 +225,24 @@ class AbstractAgent
                 else {
                     throw `Unknown transport protocol: ${server.listen.protocol}`;
                 }
-                // TODO: validate accept blocks
+                if (!Array.isArray(server.accept)) {
+                    throw "accept array must be provided.";
+                }
+                server.accept.forEach( accept => {
+                    if (typeof accept !== "object") {
+                        throw "accept blocks must be objects.";
+                    }
+                    if (typeof accept.clientPubKey !== "string"
+                        && typeof accept.clientPubKey !== "function"
+                        && !Array.isArray(accept.clientPubKey)) {
+                        throw "accept.clientPubKey must be string, string[] or function.";
+                    }
+                    if (accept.innerEncrypt != null && accept.innerEncrypt != 0 && accept.innerEncrypt != 1) {
+                        throw "accept.innerEncrypt must be number 0 or 1, if set.";
+                    }
+                });
+                // Note: server.listen will be validated by the server socket class.
+                // server.accept.params will be validated by the impl deriving this class.
             }
             catch(e) {
                 console.error("Server config invalid, ignoring it:", e);
@@ -196,6 +258,9 @@ class AbstractAgent
                 }
                 if (!client.serverPubKey) {
                     throw "serverPubKey must be provided.";
+                }
+                if (client.innerEncrypt != null && client.innerEncrypt != 0 && client.innerEncrypt != 1) {
+                    throw "innerEncrypt must be number 0 or 1, if set.";
                 }
                 if (typeof client.connect !== "object") {
                     throw "connect must be provided.";
@@ -213,15 +278,11 @@ class AbstractAgent
                 else {
                     throw `Unknown transport protocol: ${client.connect.protocol}`;
                 }
-                if (typeof client.protocol !== "object") {
-                    throw "protocol must be provided.";
+                if (client.connect.reconnect != null && typeof client.connect.reconnect !== "boolean") {
+                    throw "connect.reconnect must be boolean if set.";
                 }
-                // TODO: validate client.protocol
-                // {
-                //  class: Protocol,
-                //  rootNodeId: <string>,
-                //  innerEncrypt: <boolean | null>
-                // }
+                // Note: connect.{host,port} will be checked by the socket client instance.
+                // client.params will be validated by the impl deriving this class.
             }
             catch(e) {
                 console.error("Client config invalid, ignoring it:", e);
@@ -280,8 +341,65 @@ class AbstractAgent
     }
 
     /**
-     * Event when protocol is successfully connected
-     * Signature of callback fn is (protocol, storageFactory).
+     * It will serialize the client parameters so it can be sent over socket.
+     * The server side knows how to deserialize it.
+     *
+     * @param {Object} client params object
+     * @return {string} JSON
+     */
+    static SerializeClientParams(clientParams)
+    {
+        throw "Not implemented.";
+    }
+
+    /**
+     * Match the client parameters extracted with SerializeClientParams
+     * with the server's accept block protocols parameters.
+     *
+     * @param {Object} serializedClientParams as given by SerializeClientParams()
+     * @param {Object} serverParams accept block params object
+     * @param {string} clientPubKey verified in handshake already
+     * @return {Array<Object, String>}
+     *  0: curatedServerParams which matches serializedClientParams, where rootNodeId can *  be different that what the server had set, depending on the logic.
+     *  1: sharedParams
+     */
+    static async MatchParams(serializedClientParams, serverParams, clientPubKey)
+    {
+        throw "Not implemented.";
+    }
+
+    /**
+     *
+     * @param {KeyPair} local keypair
+     * @param {string} remotePubKey
+     * @param {Object} client.params object
+     * @param {string} sharedParams received from Server. What this is is impl specific, but it
+     *  contains something the Client should know about.
+     * @param {MessageComm} messageComm
+     *
+     */
+    async _clientConnected(localKeyPair, remotePubKey, clientParams, sharedParams, messageComm)
+    {
+        throw "Not implemented.";
+    }
+
+    /**
+     *
+     * @param {KeyPair} local keypair
+     * @param {string} remotePubKey
+     * @param {Object} serverParams server.accept.params object
+     * @param {string} sharedParams created by Server and passed to Client. Put here for reference.
+     * @param {MessageComm} messageComm
+     *
+     */
+    async _serverConnected(localKeyPair, remotePubKey, serverParams, sharedParams, messageComm)
+    {
+        throw "Not implemented.";
+    }
+
+    /**
+     * Event when client or server is successfully connected.
+     * Signature of callback fn is impl specific since it is invoked from _clientConnected or _serverConnected.
      * @param {Function} fn
      * @param {string | undefined} name optinal name to filter for, default is all ("*").
      */
@@ -307,6 +425,97 @@ class AbstractAgent
         a.push(fn);
     }
 
+    /**
+     * This function is passed to the Handshake.
+     *
+     * For a given client public key and the client parameters check the server object
+     * for a matching block of settings.
+     *
+     * @static
+     * @param {string} clientPubKey
+     * @param {string | Buffer} serializedClientParams client parameters as given by SerializeClientParams().
+     * @param {Array} server accept blocks array to find match for clientPubKey and parametersJSON.
+     * @param {Number} clientInnerEncrypt 0 for no client preference for inner encryption, 1 for required inner encryption.
+     * @return {Array<curatedServerParams <Object>, sharedParams <string | null>, innerEncryption <Number>}
+     *  matched params object from the server accept object (curated rootNodeId),
+     *  sharedParams is whatever the server needs to send the client in the final stage of the handshake.
+     *
+     *  innerEncryption is the decided upon value for client and server. 1 means use inner encryption.
+     */
+    static async ServerMatchAccept(clientPubKey, serializedClientParams, acceptBlocks, clientInnerEncrypt)
+    {
+        let curatedServerParams = null;
+        let sharedParams        = null;
+
+        let innerEncryption = clientInnerEncrypt;
+
+        try {
+            for (let index=0; index<acceptBlocks.length; index++) {
+                /** @type {*} */
+                const accept = acceptBlocks[index];
+                let result = false;
+                /** @property {(string | Array<string> | Function)} clientPubKey */
+                const acceptClientPubKey = accept.clientPubKey;
+                if (typeof(acceptClientPubKey) === "string") {
+                    if (acceptClientPubKey.toLowerCase() === clientPubKey.toLowerCase()) {
+                        result = true;
+                    }
+                }
+                else if (Array.isArray(acceptClientPubKey)) {
+                    if (acceptClientPubKey.some( pubKey => pubKey.toLowerCase() === clientPubKey.toLowerCase() )) {
+                        result = true;
+                    }
+                }
+                else if (typeof(acceptClientPubKey) === "function") {
+                    const res = await acceptClientPubKey(clientPubKey);
+                    if (res) {
+                        result = true;
+                    }
+                }
+                else {
+                    throw "Accept client pub key must be string, array or function";
+                }
+
+                if (!result) {
+                    // Match key in next accept block.
+                    continue;
+                }
+                // Fall through to see if any of the params match.
+
+                // Match implementation specific params in the server accept blocks.
+                for (let index2=0; index2<accept.params.length; index2++) {
+                    const serverParams = accept.params[index2];
+                    [curatedServerParams, sharedParams] = await this.MatchParams(serializedClientParams, serverParams, clientPubKey);
+                    if (curatedServerParams) {
+                        if (accept.innerEncrypt != null) {
+                            innerEncryption = Math.max(innerEncryption, accept.innerEncrypt);
+                        }
+                        break;
+                    }
+                }
+
+                if (curatedServerParams) {
+                    break;
+                }
+
+                // Continue loop and start over with matching client pub key to next accept block.
+            }
+
+            if (!curatedServerParams) {
+                return null;
+            }
+        }
+        catch(e) {
+            console.error("Could not match parameters in Agent.");
+            return null;
+        }
+
+        return [curatedServerParams, sharedParams, innerEncryption];
+    }
+
+    //
+    // Private functions below
+    //
     _setupServerListeners()
     {
         this.config.servers.forEach( server => {
@@ -334,11 +543,10 @@ class AbstractAgent
                 messageComm.cork();
 
                 const result = await Handshake.AsServer(messageComm, server.keyPair,
-                    (clientPubKey) => this.constructor.ServerAcceptKey(clientPubKey, server),
-                    (clientPubKey, parameters, innerEncrypt) => this.constructor.ServerMatchAccept(clientPubKey, parameters, server, innerEncrypt));
+                    (clientPubKey, serializedClientParams, clientInnerEncrypt) => this.constructor.ServerMatchAccept(clientPubKey, serializedClientParams, server.accept, clientInnerEncrypt));
 
                 if (result) {
-                    const [protocol, clientPubKey, innerEncrypt, encKeyPair, encPeerPublicKey] = result;
+                    const [curatedServerParams, sharedParams, clientPubKey, innerEncrypt, encKeyPair, encPeerPublicKey] = result;
                     if (innerEncrypt > 0) {
                         messageComm.setEncrypt(encKeyPair, encPeerPublicKey);
                         console.error("MessageComm encrypted.");
@@ -346,7 +554,8 @@ class AbstractAgent
 
                     messageComm.setBufferSize();  // Set back to default limit.
 
-                    this._serverConnected(server.keyPair, clientPubKey, protocol, messageComm);
+                    this._serverConnected(server.keyPair,
+                        clientPubKey, curatedServerParams, sharedParams, messageComm);
                 }
                 else {
                     console.error("Could not handshake accepted socket, disconnecting.");
@@ -396,7 +605,7 @@ class AbstractAgent
                 this.clientSockets.push(clientSocket);
 
                 clientSocket.onError( (err) => { // jshint ignore:line
-                    this._connectFailure("No route to host.", client.protocol.name);
+                    this._connectFailure(client.name, "No route to host.");
                     if (client.connect.reconnect) {
                         // Put client back in connect loop, but hold back a few seconds...
                         setTimeout( () => attemptConnections.push(client), 5000);
@@ -409,25 +618,23 @@ class AbstractAgent
                     messageComm.cork();
                     // Limit the size of transfer before disconnect to reduce DOS attack vector.
                     messageComm.setBufferSize(2048);
-                    let innerEncryption = client.protocol.innerEncrypt ? client.protocol.innerEncrypt : 0;
-                    const useHub = false;
-                    if (useHub) {
-                        // If we are connecting through a hub we always encfore inner encryption of data
-                        innerEncryption = 1;
-                    }
+                    let innerEncryption = client.innerEncrypt ? client.innerEncrypt : 0;
 
-                    const parameters = this.constructor.GetClientParameters(client);
+                    const parameters = this.constructor.SerializeClientParams(client.params);
 
-                    const [innerEncrypt, keyPair, peerPublicKey] = await Handshake.AsClient(messageComm, client.serverPubKey, client.keyPair, parameters, innerEncryption);
+                    const result = await Handshake.AsClient(messageComm, client.serverPubKey, client.keyPair, parameters, innerEncryption);
 
-                    if (innerEncrypt != null) {
+                    if (result) {
+                        const [sharedParams, innerEncrypt, keyPair, peerPublicKey] = result;
                         messageComm.setBufferSize();  // Set back to default limit.
                         if (innerEncrypt > 0 || innerEncryption > 0) {
                             messageComm.setEncrypt(keyPair, peerPublicKey);
                             console.error("MessageComm encrypted.");
                         }
 
-                        this._clientConnected(client.keyPair, client.serverPubKey, client.protocol, messageComm);
+                        this._clientConnected(client.keyPair,
+                            client.serverPubKey, client.params, sharedParams, messageComm);
+
                         clientSocket.onDisconnect( () => {
                             if (client.connect.reconnect) {
                                 // Put client back in connect loop, but wait a few seconds...
@@ -436,7 +643,7 @@ class AbstractAgent
                         });
                     }
                     else {
-                        this._connectFailure("Could not handshake", client.protocol.name);
+                        this._connectFailure(client.name, "Could not handshake");
                         clientSocket.disconnect();
                         this.stop();
                         return;
@@ -448,112 +655,30 @@ class AbstractAgent
     }
 
     /**
+     * Must be alled from _clientConnected and _serverConnected
      *
-     * @param {KeyPair} local keypair
-     * @param {string} remotePubKey
-     * @param {Object} client protocol object
-     * @param {MessageComm} messageComm
+     * User can hook this event on "name".
+     * Args are passed on as the implementation does it, the name is attached as last argument.
      *
+     * @param {string} name of the connection, for the users event hook to fire.
+     * @param {...args} passed on arguments.
      */
-    async _clientConnected(localKeyPair, remotePubKey, protocol, messageComm)
+    _connected(name, ...args)
     {
-        try {
-            const protocolClass     = protocol.class;
-            const protocolConfig    = protocol.config;
-            const storageFactory    = protocol.storageFactory;
-            const rootNodeId        = protocol.rootNodeId;
-            const name              = protocol.name;
-
-            if (!protocolClass) {
-                console.error("No protocol class given.");
-                return;
-            }
-
-            const storageClient = storageFactory.connect();
-
-            if (!storageClient) {
-                console.error("Could not connect to storage");
-                messageComm.disconnect();
-                return;
-            }
-
-            const protocolInstance = new protocolClass(protocolConfig, messageComm, localKeyPair, remotePubKey, storageClient, rootNodeId, name);
-
-            this._connected(protocolInstance, storageFactory);
-
-            protocolInstance.start();
-        }
-        catch(e) {
-            console.error("Could not spawn client protocol", e);
-            if(messageComm) {
-                messageComm.disconnect();
-            }
-        }
-    }
-
-    async _serverConnected(...args)
-    {
-        return this._clientConnected(...args);
-    }
-
-    _connected(protocolInstance, storageFactory)
-    {
-        // Get all event handlers who matches this protocol's name
-        const name = protocolInstance.getName();
+        // Get all event handlers who matches this connection's name
         const a = Array.prototype.concat(this.onConnectedEvents[name] || [], this.onConnectedEvents["*"] || []);
-        a.forEach( fn => fn(protocolInstance, storageFactory) );
+        a.forEach( fn => fn(...args, name) );
     }
 
-    _connectFailure(msg, name)
+    /**
+     * Called when an outgoing connection cannot connect.
+     * @param {string} name of the connection, for the users event hook to fire.
+     * @param {string} msg
+     */
+    _connectFailure(name, msg)
     {
         const a = Array.prototype.concat(this.onConnectFailureEvents[name] || [], this.onConnectFailureEvents["*"] || []);
         a.forEach( fn => fn(msg, name) );
-    }
-
-    /**
-     * This function is passed to the Handshake.
-     *
-     * For a given client public key, check the servers accept blocks for a match
-     *
-     * @static
-     * @param {string} clientPubKey
-     * @param {Object} server object to find match for clientPubKey.
-     * @return {boolean} - true if any match, or false if no matches.
-     */
-    static async ServerAcceptKey(clientPubKey, server)
-    {
-        throw "Not implemented.";
-    }
-
-    /**
-     * This function is passed to the Handshake.
-     *
-     * For a given client public key and the client parameters check the server object for a matching block of settings.
-     *
-     * @static
-     * @param {string} clientPubKey
-     * @param {string | Buffer} parametersJSON parameters in JSON serialized format as given by GetClientParameters().
-     * @param {Object} server object to find match for clientPubKey and parametersJSON.
-     * @param {Number} innerEncrypt 0 for no preference for inner enccryption, 1 for required inner encryption.
-     * @return {Object} matched protocol object from the server object.
-     */
-    static async ServerMatchAccept(clientPubKey, parametersJSON, server, innerEncrypt)
-    {
-        throw "Not implemented.";
-    }
-
-    /**
-     * This function is passed to Handshake.
-     *
-     * It will serialize the client parameters so it can be sent over socket.
-     * The server side knows how to deserialize it.
-     *
-     * @param {Object} client
-     * @return {string} parametersJSON
-     */
-    static GetClientParameters(client)
-    {
-        throw "Not implemented.";
     }
 }
 
