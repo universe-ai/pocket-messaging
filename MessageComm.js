@@ -261,14 +261,19 @@ class MessageComm
         this._on("disconnect", fn);
     }
 
+    offDisconnect(fn)
+    {
+        this._off("disconnect", fn);
+    }
+
     /**
      * Set the router function where incoming (non-reply) messages are routed.
      *
      * @param {Function} fn signature ({string} action, {string} msgId, {Object} props)
-     * @param {boolean | null} routeAsBinary if set to true then the raw incoming data
-     *  is routed to the function. The function then has the signature (Array<Buffer>).
+     * @param {boolean | null} routeAsBinary if set to true then the raw incoming buffers
+     *  are routed to the function. The function then has the signature (Array<Buffer>).
      *  Any corking of messages is ignored for this mode.
-     *  Any buffered data due to corking will be flushed to router function when this mode
+     *  Any buffered data due to corking will be flushed to the router function when this mode
      *  is set.
      */
     setRouter(fn, routeAsBinary)
@@ -391,6 +396,7 @@ class MessageComm
                 this.routeMessage(arr);
             }
             else {
+                // If in binary mode without a router set we drain the pipes.
                 this.incomingBuffers.length = 0;
             }
             return;
@@ -729,6 +735,15 @@ class MessageComm
         const fns = this.eventHandlers[event] || [];
         this.eventHandlers[event] = fns;
         fns.push(fn);
+    }
+
+    _off(event, fn)
+    {
+        const fns = this.eventHandlers[event] || [];
+        const index = fns.indexOf(fn);
+        if (index > -1) {
+            fns.splice(index, 1);
+        }
     }
 
     _triggerEvent(event, data)
