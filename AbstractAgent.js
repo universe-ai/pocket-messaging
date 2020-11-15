@@ -13,8 +13,10 @@ let WSServer;
 let TCPClient;
 let TCPServer;
 const WSClient = require("../pocket-sockets/WSClient");
-const Handshake = require("../pocket-messaging/Handshake");
-const MessageComm = require("../pocket-messaging/MessageComm");
+const Handshake = require("./Handshake");
+const MessageComm = require("./MessageComm");
+const Hash = require("../util/hash");
+const {HubClient} = require("./Hub");
 
 /**
  * @typedef {Object} KeyPair
@@ -183,10 +185,24 @@ class AbstractAgent
          *
          *          connect: {
          *              // See AbstractClient for details.
+         *              cert:
+         *              key:
          *              protocol: "tcp" | "websocket",
          *              host: "localhost",
          *              port: 8080,
-         *              reconnect: <boolean | null | undefined>
+         *              reconnect: <boolean | null | undefined>,
+         *
+         *              // If present then connect as via a hub.
+         *              // <Object | null>
+         *              hub: {
+         *                  // Optional shared secret between peers for cloaked matching.
+         *                  // When connecting via a hub the peers match via the hash of (protocolType, peerPubKey, sharedSecret).
+         *                  // If a third party is aware of a peer public key and the protocol is is connecting with and which hub it is connecting via,
+         *                  // it could interfere with the connection by posing as one of the peers which will result in peer's not finding each other as they should.
+         *                  // An interferer could not connect as a peer, only interfere with peer's successfully connecting to each other.
+         *                  // The sharedSecret can be used to mitigate such annoyances.
+         *                  sharedSecret: <string | null>
+         *              }
          *          },
          *
          *          params: {
@@ -348,6 +364,20 @@ class AbstractAgent
      * @return {string} JSON
      */
     static SerializeClientParams(clientParams)
+    {
+        throw "Not implemented.";
+    }
+
+    /**
+     * For peer to peer connections via a hub, one of the client's
+     * need to transform into a server for the handshake to proceed.
+     *
+     * This function transforms a client params object to a server accept params object.
+     *
+     * @param {Object} client params object
+     * @return {Object} server params object
+     */
+    static ClientParamsIntoServer(clientParams)
     {
         throw "Not implemented.";
     }
@@ -605,50 +635,116 @@ class AbstractAgent
                 this.clientSockets.push(clientSocket);
 
                 clientSocket.onError( (err) => { // jshint ignore:line
+                    const index = this.clientSockets.indexOf(clientSocket);
+                    if (index > -1) {
+                        this.clientSockets.splice(index, 1);
+                    }
                     this._connectFailure(client.name, "No route to host.");
+                });
+
+                clientSocket.onDisconnect( () => {
+                    const index = this.clientSockets.indexOf(clientSocket);
+                    if (index > -1) {
+                        this.clientSockets.splice(index, 1);
+                    }
                     if (client.connect.reconnect) {
-                        // Put client back in connect loop, but hold back a few seconds...
+                        // Put client back in connect loop, but wait a few seconds...
                         setTimeout( () => attemptConnections.push(client), 5000);
                     }
-                    return;
                 });
 
                 clientSocket.onConnect(async () => { // jshint ignore:line
-                    const messageComm = new MessageComm(clientSocket);
-                    messageComm.cork();
-                    // Limit the size of transfer before disconnect to reduce DOS attack vector.
-                    messageComm.setBufferSize(2048);
-                    let innerEncryption = client.innerEncrypt ? client.innerEncrypt : 0;
+                    try {
+                        const messageComm = new MessageComm(clientSocket);
+                        // Limit the size of transfer before disconnect to reduce DOS attack vector.
+                        messageComm.setBufferSize(2048);
 
-                    const parameters = this.constructor.SerializeClientParams(client.params);
+                        // Check if to connect to hub.
+                        // If connecting to hub then we have a peer to peer connection between to clients,
+                        // in such a case one of the client will need to take the role of server when handshaking.
+                        let handshakeAsClient;
+                        let handshakeSuccessful = false;
+                        let sharedParams, innerEncrypt, encKeyPair, encPeerPublicKey;
+                        if (client.connect.hub && typeof client.connect.hub == "object") {
+                            const want  = Hash.hash2([client.params.class.getType(), client.serverPubKey, client.connect.hub.sharedSecret || ""], "hex");
+                            const offer = Hash.hash2([client.params.class.getType(), client.keyPair.pub, client.connect.hub.sharedSecret || ""], "hex");
+                            const result = await HubClient(want, [offer], messageComm);
+                            if (result) {
+                                const [isServer] = result;
+                                if (isServer) {
+                                    // It fell upon this client to act as a server when connecting peer to peer.
+                                    // Gotta transform the client params to server params
+                                    handshakeAsClient = false;
+                                    const server = {
+                                        keyPair: client.keyPair,
+                                        accept: [
+                                            {
+                                                clientPubKey:   client.serverPubKey,
+                                                name:           client.name,
+                                                innerEncrypt:   client.innerEncrypt,
+                                                params: [
+                                                    this.constructor.ClientParamsIntoServer(client.params)
+                                                ]
+                                            }
+                                        ],
+                                    };
 
-                    const result = await Handshake.AsClient(messageComm, client.serverPubKey, client.keyPair, parameters, innerEncryption);
+                                    messageComm.cork();
+                                    const result = await Handshake.AsServer(messageComm, server.keyPair,
+                                        (clientPubKey, serializedClientParams, clientInnerEncrypt) => this.constructor.ServerMatchAccept(clientPubKey, serializedClientParams, server.accept, clientInnerEncrypt));
 
-                    if (result) {
-                        const [sharedParams, innerEncrypt, keyPair, peerPublicKey] = result;
-                        messageComm.setBufferSize();  // Set back to default limit.
-                        if (innerEncrypt > 0 || innerEncryption > 0) {
-                            messageComm.setEncrypt(keyPair, peerPublicKey);
-                            console.error("MessageComm encrypted.");
+                                    if (result) {
+                                        let _;
+                                        [_, sharedParams, _, innerEncrypt, encKeyPair, encPeerPublicKey] = result;
+                                        handshakeSuccessful = true;
+                                    }
+                                }
+                                else {
+                                    handshakeAsClient = true;
+                                }
+                            }
+                            else {
+                                throw "Hub error";
+                            }
+                        }
+                        else {
+                            handshakeAsClient = true;
                         }
 
-                        this._clientConnected(client.keyPair,
-                            client.serverPubKey, client.params, sharedParams, messageComm);
-
-                        clientSocket.onDisconnect( () => {
-                            if (client.connect.reconnect) {
-                                // Put client back in connect loop, but wait a few seconds...
-                                setTimeout( () => attemptConnections.push(client), 5000);
+                        let innerEncryption = 0;
+                        if (handshakeAsClient) {
+                            // Perform client handshake.
+                            innerEncryption     = client.innerEncrypt ? client.innerEncrypt : 0;
+                            const parameters        = this.constructor.SerializeClientParams(client.params);
+                            messageComm.cork();
+                            const result            = await Handshake.AsClient(messageComm, client.serverPubKey, client.keyPair, parameters, innerEncryption);
+                            if (result) {
+                                [sharedParams, innerEncrypt, encKeyPair, encPeerPublicKey] = result;
+                                handshakeSuccessful = true;
                             }
-                        });
+                        }
+
+                        if (handshakeSuccessful) {
+                            messageComm.setBufferSize();  // Set back to default limit.
+                            if (innerEncrypt > 0 || innerEncryption > 0) {
+                                messageComm.setEncrypt(encKeyPair, encPeerPublicKey);
+                                console.error("MessageComm encrypted.");
+                            }
+
+                            this._clientConnected(client.keyPair,
+                                client.serverPubKey, client.params, sharedParams, messageComm);
+                        }
+                        else {
+                            throw "Could not handshake";
+                        }
                     }
-                    else {
-                        this._connectFailure(client.name, "Could not handshake");
+                    catch (e) {
+                        console.error(e);
                         clientSocket.disconnect();
-                        this.stop();
-                        return;
+                        this._connectFailure(client.name, e);
                     }
                 });
+
                 clientSocket.connect();
             }
         }, 1000);
