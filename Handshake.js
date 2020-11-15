@@ -14,6 +14,8 @@
  *          SO WE NEED TO UP THE GAME ON THAT PART.
  *          WE COULD SOLVE THIS BY ADDING SUPPORT OF SYMMETRIC ENCRYPTION TO THE MESSAGECOMM AND ENABLE THAT ALREADY FROM STEP 2.
  *
+ * ERROR:   THIS IS NOT SAFE AGAINST ATTACKS SINCE THE TOKEN IS USED FOR SYMMETRIC ENCRYPT WHEN IT SHOULD BE USED FOR HASHING.
+ *
  * The Server will only reveal its identity as long as the Client already knows it.
  * The Client will only reveal its identity to the Server with the idenity it is expecting to connect to.
  *
