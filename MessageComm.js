@@ -6,15 +6,24 @@ const nacl = require("tweetnacl");
 class MessageComm
 {
     /**
+     * @callback RouteMessageCallback
+     * @param  {object} action - message action.
+     * @param  {number} msgId - message id.
+     * @param  {Array}  data - message data.
+     */
+
+    /**
      * @param {Socket} socket
-     * @param {Function} routeMessage signature ([action, msgId, data])
-     *
+     * @param {RouteMessageCallback} [routeMessage] - Can be set or reset after initialization.
      */
     constructor(socket, routeMessage)
     {
+        if (!socket) {
+            throw "Referencing an existing socket is required for initialization.";
+        }
+
         this.socket = socket;
         this.routeMessage = routeMessage;
-        this.isCorked = false;
         this.isClosed = false;
         this.msgsInFlight = {};
         this.incomingBuffers = [];  // Incoming data buffered
