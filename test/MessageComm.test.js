@@ -157,4 +157,350 @@ describe("MessageComm", () => {
             assert.doesNotThrow(() => { new MessageComm(socket1, (action, msgId, props) => { assert(false); }) });
         });
     });
+
+    describe("_setupJanitorChannel", () => {
+        let comm;
+        let socket1;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => { comm = new MessageComm(socket1); });
+        });
+
+        test("Check send is called", () => {
+            let data, msgId, timeout, callback;
+            const send = jest.fn((a, b, c, d) => {
+                data = a;
+                msgId = b;
+                timeout = c;
+                callback = d;
+            });
+            comm.send = send;
+
+            assert(comm.msgsInFlight["00000000"]);
+            assert(comm.msgsInFlight["00000000"].onReply == null);
+            assert(comm.msgsInFlight["00000000"].timeout == 0);
+            assert(comm.msgsInFlight["00000000"].callbackTimeout == 0);
+            assert.doesNotThrow(() => { comm._setupJanitorChannel(); });
+            assert(data.length == 0);
+            assert(msgId == "00000000");
+            assert(timeout == 0);
+            assert(typeof callback == "function");
+        });
+
+        test.skip("Check sendMessage is called", () => {
+            assert.doesNotThrow(() => { comm._setupJanitorChannel(); });
+            assert(false, "TODO: FIXME: assert socket sends ping");
+        });
+
+        test("Check lastActivity is touched", async () => {
+            const lastActivity = comm.lastActivity;
+            await new Promise(resolve => setTimeout(resolve, 100));
+            assert.doesNotThrow(() => { comm._setupJanitorChannel(); });
+            assert(lastActivity != comm.lastActivity);
+            assert(comm.lastActivity >= (Date.now() - 1000) && comm.lastActivity <= Date.now());
+        });
+
+        test("Check inactivity is called", async (done) => {
+            comm.inactivityThreshold = -9999;
+            const sendMessage = jest.fn(() => {
+                return {
+                    isSuccess: function(){
+                        return false
+                    }
+                };
+            });
+            comm.sendMessage = sendMessage;
+
+            assert.doesNotThrow(async() => {
+                assert(comm.socket.isDisconnected == false);
+                await comm._setupJanitorChannel();
+                assert(comm.socket.isDisconnected == true);
+                done();
+            });
+        });
+    });
+
+    describe("_checkInactivity", () => {
+        let comm;
+        let socket1;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => { comm = new MessageComm(socket1); });
+        });
+
+        test("Date now is newer than last activity", async (done) => {
+            comm.lastActivity = 0;
+            let called = false;
+            const sendMessage = jest.fn(() => {
+                called = true;
+                return {
+                    isSuccess: function(){
+                        return false
+                    }
+                };
+
+            });
+            comm.sendMessage = sendMessage;
+
+            assert.doesNotThrow(async() => {
+                assert(called == false);
+                await comm._checkInactivity();
+                assert(called == true);
+                done();
+            });
+        });
+
+        test("Date now is older than last activity", async (done) => {
+            comm.lastActivity = Date.now() + 999999;
+            let called = false;
+            const sendMessage = jest.fn(() => {
+                called = true;
+                return {
+                    isSuccess: function(){
+                        return false
+                    }
+                };
+
+            });
+            comm.sendMessage = sendMessage;
+
+            assert.doesNotThrow(async() => {
+                assert(called == false);
+                await comm._checkInactivity();
+                assert(called == false);
+                done();
+            });
+        });
+
+        test("Date now is newer than threshold", async (done) => {
+            comm.inactivityThreshold = 0;
+            let called = false;
+            const sendMessage = jest.fn(() => {
+                called = true;
+                return {
+                    isSuccess: function(){
+                        return false
+                    }
+                };
+
+            });
+            comm.sendMessage = sendMessage;
+
+            assert.doesNotThrow(async() => {
+                assert(called == false);
+                await comm._checkInactivity();
+                await new Promise(resolve => setTimeout(resolve, 100));
+                await comm._checkInactivity();
+                assert(called == true);
+                done();
+            });
+        });
+
+        test("Date now is older than threshold", async (done) => {
+            comm.inactivityThreshold = 999999;
+            let called = false;
+            const sendMessage = jest.fn(() => {
+                called = true;
+                return {
+                    isSuccess: function(){
+                        return false
+                    }
+                };
+
+            });
+            comm.sendMessage = sendMessage;
+
+            assert.doesNotThrow(async() => {
+                assert(called == false);
+                await comm._checkInactivity();
+                assert(called == false);
+                done();
+            });
+        });
+
+        test("pingPong is false", async (done) => {
+            comm.pingPong = false;
+            comm.inactivityThreshold = 0;
+            let called = false;
+            const sendMessage = jest.fn(() => {
+                called = true;
+                return {
+                    isSuccess: function(){
+                        return false
+                    }
+                };
+
+            });
+            comm.sendMessage = sendMessage;
+
+            assert.doesNotThrow(async() => {
+                assert(called == false);
+                await comm._checkInactivity();
+
+                await new Promise(resolve => setTimeout(resolve, 100));
+                await comm._checkInactivity();
+
+                assert(called == false);
+                done();
+            });
+        });
+
+        test("isClosed is false", async (done) => {
+            let called = false;
+            global.setTimeout = jest.fn(() => {
+                called = true;
+            });
+
+            comm.isClosed = false;
+            assert.doesNotThrow(async() => {
+                assert(called == false);
+                await comm._checkInactivity();
+                assert(called == true);
+                done();
+            });
+        });
+
+        test("isClosed is true", async (done) => {
+            let called = false;
+            global.setTimeout = jest.fn(() => {
+                called = true;
+            });
+
+            comm.isClosed = true;
+            assert.doesNotThrow(async() => {
+                assert(called == false);
+                await comm._checkInactivity();
+                assert(called == false);
+                done();
+            });
+        });
+    });
+
+    describe("send", () => {
+        let comm;
+        let socket1;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => { comm = new MessageComm(socket1); });
+        });
+
+        test("Missing buffers parameter", () => {
+            let ret;
+            assert.doesNotThrow(() => { ret = comm.send(); });
+            assert(ret.isException());
+            assert(ret.errorMessage() == "Send buffers are null. Error in packing message?");
+        });
+
+        test("buffers is null", () => {
+            let ret;
+            assert.doesNotThrow(() => { ret = comm.send(null); });
+            assert(ret.isException());
+            assert(ret.errorMessage() == "Send buffers are null. Error in packing message?");
+        });
+
+        test("Empty buffers parameter", () => {
+            let ret;
+            assert.doesNotThrow(() => { ret = comm.send([ Buffer.from("") ]); });
+            assert(ret.isSuccess());
+        });
+
+        test("msgId is null", () => {
+            let ret;
+            assert.doesNotThrow(() => { ret = comm.send([ Buffer.from("") ], null); });
+            assert(ret.isSuccess());
+        });
+
+        test("msgId is null while timeout is set", () => {
+            let ret;
+            assert.doesNotThrow(() => { ret = comm.send([ Buffer.from("") ], null, 10); });
+            assert(ret.isException());
+            assert(ret.errorMessage() == "msgId must also be set if expecting callback or timeout.");
+        });
+
+        //
+        // Setting up reply with unset msgId
+        test("msgId is null while callback is set", () => {
+            let ret;
+            assert.doesNotThrow(() => { ret = comm.send([ Buffer.from("") ], null, null, () => {}); });
+            assert(ret.isException());
+            assert(ret.errorMessage() == "msgId must also be set if expecting callback or timeout.");
+        });
+        test("msgId is null while callbackTimeout is set", () => {
+            let ret;
+            assert.doesNotThrow(() => { ret = comm.send([ Buffer.from("") ], null, null, null, 10); });
+            assert(ret.isException());
+            assert(ret.errorMessage() == "msgId must also be set if expecting callback or timeout.");
+        });
+        test("timeout is null", () => {
+            let ret;
+            assert.doesNotThrow(() => { ret = comm.send([ Buffer.from("") ], null, null); });
+            assert(ret.isSuccess());
+        });
+
+        test("timeout is undefined", () => {
+            let ret;
+            assert.doesNotThrow(() => { ret = comm.send([ Buffer.from("") ], null, undefined); });
+            assert(ret.isSuccess());
+        });
+
+        test("Socket is closed", () => {
+            comm.isClosed = true;
+            let ret;
+            assert.doesNotThrow(() => { ret = comm.send(); });
+            assert(ret.isException());
+            assert(ret.errorMessage() == "Socket is closed.");
+        });
+
+        test("msgId already in use", () => {
+            let ret;
+            assert.doesNotThrow(() => { ret = comm.send([ Buffer.from("") ], "00000000"); });
+            assert(ret.isException());
+            assert(ret.errorMessage() == "Message ID already in use: 00000000");
+        });
+
+        test("Delete message if no callback is defined", async(done) => {
+            let ret;
+            assert.doesNotThrow(() => { ret = comm.send([ ], "0xABBA", 4); assert(!comm.msgsInFlight["0xABBA"]); });
+            let status = await ret;
+            assert(status.isSuccess());
+            done();
+        });
+
+        test("Error encrypting buffers", () => {
+            const _encryptBuffers = jest.fn(() => {
+                throw "Error"
+            });
+            comm._encryptBuffers = _encryptBuffers;
+
+            let ret;
+            assert.doesNotThrow(() => { ret = comm.send([ Buffer.from("") ], null, undefined); });
+            assert(ret.isSocketError());
+        });
+
+        test("Error sending encrypted buffers", () => {
+            comm.socket = {
+                send: function() {
+                    throw "Error";
+                },
+                disconnect: function() {
+                }
+            };
+
+            let ret;
+            assert.doesNotThrow(() => { ret = comm.send([ Buffer.from("") ], null, undefined); });
+            assert(ret.isSocketError());
+        });
+
+        test("Send packaged message data buffers on socket, then timeout", () => {
+            let customComm;
+            assert.doesNotThrow(() => { customComm = new MessageComm(socket1); });
+            let ret;
+            assert.doesNotThrow(async () => {
+                assert(customComm.msgsInFlight["0xABBA"]);
+                ret = await customComm.send([ Buffer.from("") ], "0xABBA", 4);
+                assert(!customComm.msgsInFlight["0xABBA"]);
+                assert(ret.isTimeout());
+            });
+        });
+    });
 });
