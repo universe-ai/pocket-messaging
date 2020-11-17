@@ -125,7 +125,7 @@ class MessageComm
      * A message can have it's action field set to the incomig msg ID, in which case
      * it will be seen as a reply when the peer is receiving it.
      *
-     * @param {Array<Buffer>} data buffers to be sent
+     * @param {Array<Buffer>} buffers - data buffers to be sent
      *
      * @param {string} [msgId] set to the msgId of the packed message, if we are expecting a reply
      *
@@ -143,7 +143,7 @@ class MessageComm
      *  When a regular message is recieved for the callback the timeout counter is reset, meaning timeout messages are only sent if no
      *  other message has arrived within the timeout interval.
      *
-     * @return {Promise<AsyncRet>} If no reply is expected (no msgId set) then return AsyncRet.Success() or AsyncRet.Exception()/AsyncRet.SocketError() on error.
+     * @return {Promise<AsyncRet> | AsyncRet} If no reply is expected (no msgId set) then return AsyncRet.Success() or AsyncRet.Exception()/AsyncRet.SocketError() on error.
      *  If the caller is expecting a reply then AsyncRet will be forwarded from the replying peer plus that the msgId of the reply will be set in the AsyncRet object.
      *  Other possible returns to waiting caller are AsyncRet.Busy() and AsyncRet.Timeout().
      *  If the data buffers attempted to be sent are empty then a AsyncRet.Success() is returned.
@@ -160,7 +160,7 @@ class MessageComm
             // This is a catch-em-all for messages who could not pack properly, for whatever reason.
             const err = "Send buffers are null. Error in packing message?";
             console.error(err);
-            return AsyncRet.Exception(ret);
+            return AsyncRet.Exception(err);
         }
 
         // If we have not set msgId, it means we are not expecting a reply,
@@ -169,7 +169,7 @@ class MessageComm
             if (callback || timeout != null || callbackTimeout != null) {
                 const err = "msgId must also be set if expecting callback or timeout.";
                 console.error(err);
-                return AsyncRet.Exception(ret);
+                return AsyncRet.Exception(err);
             }
         }
         else {
@@ -188,7 +188,7 @@ class MessageComm
             this.msgsInFlight[msgId] = {onReply: null, onCallback: callback, timeout: timeout, callbackTimeout: callbackTimeout, lastActivity: Date.now()};
             // Note: it is crucial that the onReply is set before any reply is read back on socket.
             ret = new Promise( resolve => {
-                // We call this send successfull staright away,
+                // We call this send successfull straight away,
                 // since there is not data sent on socket.
                 if (buffers.length === 0) {
                     // Remove message if no callback was defined.
