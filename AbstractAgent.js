@@ -607,9 +607,11 @@ class AbstractAgent
     {
         const attemptConnections = Array.prototype.concat(this.config.clients);
 
-        // Check each second for connections to attemp
-        setInterval( () => {
+        // Check each second for connections to attempt
+        let intervalId;
+        intervalId = setInterval( () => {
             if (this.isStopped) {
+                clearInterval(intervalId);
                 return;
             }
 
