@@ -4,6 +4,6 @@
     "jest": "^26.6.3"
   },
   "scripts": {
-    "test": "jest --color --collectCoverageFrom=./*.js --coverageProvider=v8 --detectOpenHandles=true --errorOnDeprecated=true --verbose --collectCoverage ./test/. "
+    "test": "jest --silent --color --collectCoverageFrom=./*.js --coverageProvider=v8 --detectOpenHandles=true --errorOnDeprecated=true --verbose --collectCoverage ./test/. "
   }
 }
