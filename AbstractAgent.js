@@ -253,7 +253,7 @@ class AbstractAgent
                         && !Array.isArray(accept.clientPubKey)) {
                         throw "accept.clientPubKey must be string, string[] or function.";
                     }
-                    if (accept.innerEncrypt != null && accept.innerEncrypt != 0 && accept.innerEncrypt != 1) {
+                    if (accept.innerEncrypt != null && accept.innerEncrypt !== 0 && accept.innerEncrypt !== 1) {
                         throw "accept.innerEncrypt must be number 0 or 1, if set.";
                     }
                 });
@@ -275,7 +275,7 @@ class AbstractAgent
                 if (!client.serverPubKey) {
                     throw "serverPubKey must be provided.";
                 }
-                if (client.innerEncrypt != null && client.innerEncrypt != 0 && client.innerEncrypt != 1) {
+                if (client.innerEncrypt != null && client.innerEncrypt !== 0 && client.innerEncrypt !== 1) {
                     throw "innerEncrypt must be number 0 or 1, if set.";
                 }
                 if (typeof client.connect !== "object") {
