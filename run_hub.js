@@ -5,7 +5,7 @@ const {HubServer, HubClient} = require("../pocket-messaging/Hub");
 const serverTCP = {
     listen: {
         protocol: "tcp",
-        host: "localhost",
+        host: "0.0.0.0",
         port: 9191,
     }
 };
@@ -13,7 +13,7 @@ const serverTCP = {
 const serverWS = {
     listen: {
         protocol: "websocket",
-        host: "localhost",
+        host: "0.0.0.0",
         port: 9192,
     }
 };
