@@ -541,7 +541,7 @@ describe("MessageComm", () => {
             RANDOM_MESSAGE_ID = crypto.randomBytes(4).toString("hex");
             const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
             assert(message.getMsgId() == RANDOM_MESSAGE_ID);
-            assert.throws(() => {const ret = customComm.sendMessage(message); }, /[AssertionError: false == true]/);
+            assert.doesNotThrow(() => {const ret = customComm.sendMessage(message); });
         });
 
         test("expectReply is null", () => {

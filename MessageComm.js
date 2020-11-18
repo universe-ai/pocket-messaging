@@ -225,7 +225,7 @@ class MessageComm
      * Sugar function for send() which takes a Message object.
      *
      * @param {MessageEncoder} message ready to be packed
-     * @param {boolean} expectReply set to true if expecting a reply or callbacks.
+     * @param {boolean} [expectReply] set to true if expecting a reply or callbacks.
      * @param {number | null} [timeout] set to have a timeouted auto reply after x seconds without a first reply.
      * @param {Function | null} [callback] function invoked from 2nd reply and onwards.
      * @param {number | null} [callbackTimeout] set to have continuous timeouted auto replies on the callback on a x seconds interval.
@@ -239,7 +239,7 @@ class MessageComm
             throw `Cannot send message of type ${type}. Expected message to be instanceof MessageEncoder`;
         }
         const packedBuffers = message.pack();
-        assert((!expectReply && expectReply != undefined) || (expectReply && typeof expectReply == "boolean"));
+        assert((!expectReply && (expectReply === undefined || expectReply == false)) || (expectReply && typeof expectReply == "boolean"));
         return this.send(packedBuffers, expectReply && message.getMsgId(), timeout, callback, callbackTimeout);
     }
 
