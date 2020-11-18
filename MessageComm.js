@@ -1,6 +1,7 @@
 const AsyncRet = require("./AsyncRet");
 const {MessageDecoder} = require("./Message");
 const {MessageEncoder} = require("./Message");
+const assert = require("assert");
 const nacl = require("tweetnacl");
 
 class MessageComm
@@ -133,11 +134,11 @@ class MessageComm
      *  Defaults to 10 seconds if set to null. Set to 0 for no timeout.
      *  When timeouted the caller will resolve its promise to an AsyncRet.Timeout().
      *
-     * @param {Function} [callback] function invoked from 2nd reply and onwards.
+     * @param {Function | null} [callback] function invoked from 2nd reply and onwards.
      *  Signature AsyncRet(data, msgId (of incoming message)) if the callback returns exactly false that indicates no more replies accepted
      *  and the message will be removed from storage.
      *
-     * @param {number | null} [callbackTimeout] set to have continous timeouted auto replies on the callback on a x seconds interval.
+     * @param {number | null} [callbackTimeout] set to have continuous timeouted auto replies on the callback on a x seconds interval.
      *  Set to 0 or null for no timeout.
      *  When timeouted the caller will invoke the callback function with an AsyncRet.Timeout().
      *  When a regular message is recieved for the callback the timeout counter is reset, meaning timeout messages are only sent if no
@@ -221,21 +222,41 @@ class MessageComm
     }
 
     /**
-     * Suger function for send() which takes a Message object.
+     * Sugar function for send() which takes a Message object.
      *
      * @param {MessageEncoder} message ready to be packed
-     * @param (boolean} expectReply set to true if expecting a reply or callbacks.
-     * @param {number | null} [timeout]
-     * @param {Function | null} [callback]
-     * @param {number | null} [callbackTimeout]
-     * return {Promise<AsyncRet>}
+     * @param {boolean} expectReply set to true if expecting a reply or callbacks.
+     * @param {number | null} [timeout] set to have a timeouted auto reply after x seconds without a first reply.
+     * @param {Function | null} [callback] function invoked from 2nd reply and onwards.
+     * @param {number | null} [callbackTimeout] set to have continuous timeouted auto replies on the callback on a x seconds interval.
+     * return {Promise<AsyncRet> | AsyncRet}
+     * @throws An exception will be thrown when the resulting message length is bigger than MAX_MESSAGE_SIZE.
      */
     sendMessage(message, expectReply, timeout, callback, callbackTimeout)
     {
+        if( ! (message instanceof MessageEncoder) ) {
+            const type = typeof message;
+            throw `Cannot send message of type ${type}. Expected message to be instanceof MessageEncoder`;
+        }
         const packedBuffers = message.pack();
+        assert((!expectReply && expectReply != undefined) || (expectReply && typeof expectReply == "boolean"));
         return this.send(packedBuffers, expectReply && message.getMsgId(), timeout, callback, callbackTimeout);
     }
 
+    /**
+     * Sugar function for send() which takes an action and an object.
+     *
+     * @param {string} action - message action
+     * @param {Object} object - message object
+     * @param {boolean} expectReply set to true if expecting a reply or callbacks.
+     * @param {number | null} [timeout] set to have a timeouted auto reply after x seconds without a first reply.
+     * @param {Function | null} [callback] function invoked from 2nd reply and onwards.
+     * @param {number | null} [callbackTimeout] set to have continuous timeouted auto replies on the callback on a x seconds interval.
+     * return {Promise<AsyncRet> | AsyncRet}
+     * @throws An exception will be thrown when action is not in a valid format or when, for some other reason, the MessageEncoder object was unable to be created.
+     * @throws An exception will be thrown when object is not in a valid format, or when, for some other reason, the addObject call fails.
+     * @throws An exception will be thrown when the resulting message length is bigger than MAX_MESSAGE_SIZE.
+     */
     sendObject(action, object, expectReply, timeout, callback, callbackTimeout)
     {
         const message = new MessageEncoder(action);
@@ -257,11 +278,12 @@ class MessageComm
     }
 
     /**
-     * Close the underlaying socket.
+     * Close the underlying socket.
      *
      */
     close()
     {
+        assert(this.socket);
         this.socket.disconnect();
     }
 
