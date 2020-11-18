@@ -297,6 +297,9 @@ class AbstractAgent
                 if (client.connect.reconnect != null && typeof client.connect.reconnect !== "boolean") {
                     throw "connect.reconnect must be boolean if set.";
                 }
+                if (client.connect.hub && typeof client.connect.hub !== "object") {
+                    throw "connect.hub must be an object, if set.";
+                }
                 // Note: connect.{host,port} will be checked by the socket client instance.
                 // client.params will be validated by the impl deriving this class.
             }
@@ -667,7 +670,7 @@ class AbstractAgent
                         let handshakeAsClient;
                         let handshakeSuccessful = false;
                         let sharedParams, innerEncrypt, encKeyPair, encPeerPublicKey;
-                        if (client.connect.hub && typeof client.connect.hub == "object") {
+                        if (client.connect.hub && typeof client.connect.hub === "object") {
                             const want  = Hash.hash2([client.params.class.getType(), client.serverPubKey, client.connect.hub.sharedSecret || ""], "hex");
                             const offer = Hash.hash2([client.params.class.getType(), client.keyPair.pub, client.connect.hub.sharedSecret || ""], "hex");
                             const result = await HubClient(want, [offer], messageComm);
