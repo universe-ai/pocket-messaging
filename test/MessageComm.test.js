@@ -2,7 +2,8 @@ const assert = require("assert");
 const fs = require("fs");
 const MessageComm = require("../MessageComm");
 const CreatePair = require("../../pocket-sockets/VirtualClient");
-const {MessageEncoder} = require("../Message");
+const { MessageEncoder, KEY_LENGTH } = require("../Message.js");
+const crypto = require("crypto");
 const nacl = require("tweetnacl");
 
 /*async function test(resolve, listenOptions, connectOptions, Server, Client)
@@ -491,16 +492,247 @@ describe("MessageComm", () => {
             assert(ret.isSocketError());
         });
 
-        test("Send packaged message data buffers on socket, then timeout", () => {
+        test.skip("Send packaged message data buffers on socket, then timeout", async(done) => {
             let customComm;
             assert.doesNotThrow(() => { customComm = new MessageComm(socket1); });
             let ret;
             assert.doesNotThrow(async () => {
-                assert(customComm.msgsInFlight["0xABBA"]);
-                ret = await customComm.send([ Buffer.from("") ], "0xABBA", 4);
                 assert(!customComm.msgsInFlight["0xABBA"]);
+                ret = await customComm.send([ Buffer.from("") ], "0xABBA", 1);
                 assert(ret.isTimeout());
+                done();
             });
+        });
+    });
+
+    describe("sendMessage", () => {
+        let comm;
+        let socket1;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => { comm = new MessageComm(socket1); });
+        });
+
+        test("message parameter is missing", () => {
+            let customComm;
+            assert.doesNotThrow(() => { customComm = new MessageComm(socket1); });
+            assert.throws(() => {const ret = customComm.sendMessage(); }, /Cannot send message of type undefined. Expected message to be instanceof MessageEncoder/);
+        });
+
+        test("message is null", () => {
+            let customComm;
+            assert.doesNotThrow(() => { customComm = new MessageComm(socket1); });
+            assert.throws(() => {const ret = customComm.sendMessage(null); }, /Cannot send message of type object. Expected message to be instanceof MessageEncoder/);
+        });
+
+        test("message is not MessageEncoder", () => {
+            let customComm;
+            assert.doesNotThrow(() => { customComm = new MessageComm(socket1); });
+            const message = {};
+            assert.throws(() => {const ret = customComm.sendMessage(message); }, /Cannot send message of type object. Expected message to be instanceof MessageEncoder/);
+        });
+
+        test("expectReply is missing", () => {
+            let customComm;
+            assert.doesNotThrow(() => { customComm = new MessageComm(socket1); });
+            let RANDOM_MESSAGE_ACTION;
+            let RANDOM_MESSAGE_ID;
+            RANDOM_MESSAGE_ACTION = crypto.randomBytes(KEY_LENGTH).toString("ascii").slice(0, KEY_LENGTH);
+            RANDOM_MESSAGE_ID = crypto.randomBytes(4).toString("hex");
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            assert(message.getMsgId() == RANDOM_MESSAGE_ID);
+            assert.throws(() => {const ret = customComm.sendMessage(message); }, /[AssertionError: false == true]/);
+        });
+
+        test("expectReply is null", () => {
+            let customComm;
+            assert.doesNotThrow(() => { customComm = new MessageComm(socket1); });
+            let RANDOM_MESSAGE_ACTION;
+            let RANDOM_MESSAGE_ID;
+            RANDOM_MESSAGE_ACTION = crypto.randomBytes(KEY_LENGTH).toString("ascii").slice(0, KEY_LENGTH);
+            RANDOM_MESSAGE_ID = crypto.randomBytes(4).toString("hex");
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            assert(message.getMsgId() == RANDOM_MESSAGE_ID);
+            assert.throws(() => {const ret = customComm.sendMessage(message, null); }, /[AssertionError: false == true]/);
+        });
+
+        test("expectReply is not boolean", () => {
+            let customComm;
+            assert.doesNotThrow(() => { customComm = new MessageComm(socket1); });
+            let RANDOM_MESSAGE_ACTION;
+            let RANDOM_MESSAGE_ID;
+            RANDOM_MESSAGE_ACTION = crypto.randomBytes(KEY_LENGTH).toString("ascii").slice(0, KEY_LENGTH);
+            RANDOM_MESSAGE_ID = crypto.randomBytes(4).toString("hex");
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            assert(message.getMsgId() == RANDOM_MESSAGE_ID);
+            assert.throws(() => {const ret = customComm.sendMessage(message, "true"); }, /[AssertionError: false == true]/);
+        });
+
+        test.skip("send then timeout", async (done) => {
+            let customComm;
+            assert.doesNotThrow(() => { customComm = new MessageComm(socket1); });
+            let RANDOM_MESSAGE_ACTION;
+            let RANDOM_MESSAGE_ID;
+            RANDOM_MESSAGE_ACTION = crypto.randomBytes(KEY_LENGTH).toString("ascii").slice(0, KEY_LENGTH);
+            RANDOM_MESSAGE_ID = crypto.randomBytes(4).toString("hex");
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            assert(message.getMsgId() == RANDOM_MESSAGE_ID);
+            let ret;
+            assert.doesNotThrow(async () => {
+                ret = await customComm.sendMessage(message, true, 1);
+                assert(ret.isTimeout());
+                done();
+            });
+        });
+    });
+
+    describe("sendObject", () => {
+        let comm;
+        let socket1;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => { comm = new MessageComm(socket1); });
+        });
+
+        test("action parameter is missing", () => {
+            let customComm;
+            assert.doesNotThrow(() => { customComm = new MessageComm(socket1); });
+            assert.throws(() => {const ret = customComm.sendObject(); }, /[AssertionError: false == true]/);
+        });
+
+        test("action is null", () => {
+            let customComm;
+            assert.doesNotThrow(() => { customComm = new MessageComm(socket1); });
+            assert.throws(() => {const ret = customComm.sendObject(null); }, /[AssertionError: false == true]/);
+        });
+
+        test("action is not string", () => {
+            let customComm;
+            assert.doesNotThrow(() => { customComm = new MessageComm(socket1); });
+            const action = [];
+            assert.throws(() => {const ret = customComm.sendObject(message); }, /[AssertionError: false == true]/);
+        });
+
+        test("object parameter is missing", () => {
+            let customComm;
+            assert.doesNotThrow(() => { customComm = new MessageComm(socket1); });
+            const action = "my action";
+            assert.throws(() => {const ret = customComm.sendObject(action); }, /[AssertionError: false == true]/);
+        });
+
+        test("object parameter is null", () => {
+            let customComm;
+            assert.doesNotThrow(() => { customComm = new MessageComm(socket1); });
+            const action = "my action";
+            assert.doesNotThrow(() => {const ret = customComm.sendObject(action, null); });
+        });
+
+        test("object parameter is not Object", () => {
+            let customComm;
+            assert.doesNotThrow(() => { customComm = new MessageComm(socket1); });
+            const action = "my action";
+            const object = [];
+            assert.throws(() => {const ret = customComm.sendObject(action, object); }, /[AssertionError: false == true]/);
+        });
+
+        test("expectReply is missing", () => {
+            let customComm;
+            assert.doesNotThrow(() => { customComm = new MessageComm(socket1); });
+            let RANDOM_MESSAGE_ACTION;
+            let RANDOM_MESSAGE_ID;
+            RANDOM_MESSAGE_ACTION = crypto.randomBytes(KEY_LENGTH).toString("ascii").slice(0, KEY_LENGTH);
+            RANDOM_MESSAGE_ID = crypto.randomBytes(4).toString("hex");
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            assert(message.getMsgId() == RANDOM_MESSAGE_ID);
+            assert.throws(() => {const ret = customComm.sendObject(message); }, /[AssertionError: false == true]/);
+        });
+
+        test("expectReply is null", () => {
+            let customComm;
+            assert.doesNotThrow(() => { customComm = new MessageComm(socket1); });
+            let RANDOM_MESSAGE_ACTION;
+            let RANDOM_MESSAGE_ID;
+            RANDOM_MESSAGE_ACTION = crypto.randomBytes(KEY_LENGTH).toString("ascii").slice(0, KEY_LENGTH);
+            RANDOM_MESSAGE_ID = crypto.randomBytes(4).toString("hex");
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            assert(message.getMsgId() == RANDOM_MESSAGE_ID);
+            assert.throws(() => {const ret = customComm.sendObject(message, null); }, /[AssertionError: false == true]/);
+        });
+
+        test("expectReply is not boolean", () => {
+            let customComm;
+            assert.doesNotThrow(() => { customComm = new MessageComm(socket1); });
+            let RANDOM_MESSAGE_ACTION;
+            let RANDOM_MESSAGE_ID;
+            RANDOM_MESSAGE_ACTION = crypto.randomBytes(KEY_LENGTH).toString("ascii").slice(0, KEY_LENGTH);
+            RANDOM_MESSAGE_ID = crypto.randomBytes(4).toString("hex");
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            assert(message.getMsgId() == RANDOM_MESSAGE_ID);
+            assert.throws(() => {const ret = customComm.sendObject(message, "true"); }, /[AssertionError: false == true]/);
+        });
+
+        test.skip("send then timeout", async (done) => {
+            let customComm;
+            assert.doesNotThrow(() => { customComm = new MessageComm(socket1); });
+            let RANDOM_MESSAGE_ACTION;
+            let RANDOM_MESSAGE_ID;
+            RANDOM_MESSAGE_ACTION = crypto.randomBytes(KEY_LENGTH).toString("ascii").slice(0, KEY_LENGTH);
+            RANDOM_MESSAGE_ID = crypto.randomBytes(4).toString("hex");
+            let ret;
+            assert.doesNotThrow(async () => {
+                ret = await customComm.sendObject(RANDOM_MESSAGE_ACTION, { "myobject": RANDOM_MESSAGE_ID}, true, 1);
+                assert(ret.isTimeout());
+                done();
+            });
+        });
+    });
+
+    describe("clearPendingMessage", () => {
+        let comm;
+        let socket1;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => { comm = new MessageComm(socket1); });
+        });
+
+        test("Invalid message id", () => {
+            assert(comm.msgsInFlight["00000000"]);
+            assert.doesNotThrow(() => { comm.clearPendingMessage(); });
+            assert(comm.msgsInFlight["00000000"]);
+        });
+
+        test("Invalid message id", () => {
+            assert(comm.msgsInFlight["00000000"]);
+            assert.doesNotThrow(() => { comm.clearPendingMessage("00000000"); });
+            assert(!comm.msgsInFlight["00000000"]);
+        });
+    });
+
+    describe("close", () => {
+        let comm;
+        let socket1;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => { comm = new MessageComm(socket1); });
+        });
+
+        test("socket is invalid", () => {
+            assert(!comm.socket.isDisconnected);
+            comm.socket = null;
+            assert.throws(() => { comm.close(); }, /[AssertionError: false == true]/);
+            assert(!comm.socket);
+        });
+
+        test("socket is valid and connected", () => {
+            assert(!comm.socket.isDisconnected);
+            assert.doesNotThrow(() => { comm.close(); });
+            assert(comm.socket.isDisconnected);
+        });
+
+        test("socket is valid and already disconnected", () => {
+            assert(!comm.socket.isDisconnected);
+            assert.doesNotThrow(() => { comm.close(); });
+            assert(comm.socket.isDisconnected);
         });
     });
 });
