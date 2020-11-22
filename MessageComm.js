@@ -3,6 +3,8 @@ const {MessageDecoder} = require("./Message");
 const {MessageEncoder} = require("./Message");
 const assert = require("assert");
 const nacl = require("tweetnacl");
+const Logger = require("../logger/Logger");
+const Hash = require("../util/hash");
 
 class MessageComm
 {
@@ -61,13 +63,18 @@ class MessageComm
         // 0 = uncapped.
         this.maxBufferSize = this.defaultMaxBufferSize;
 
+        this.instanceId = Hash.generateRandomHex(4);
+
+        const loggerId = `${(this).constructor.name}:${this.instanceId}`;
+        this.logger = Logger(loggerId, ( (process ? process.env : window) || {} ).LOG_LEVEL );
+
         this._onData = this._onData.bind(this);
         this._checkTimeouts = this._checkTimeouts.bind(this);
         this._checkInactivity = this._checkInactivity.bind(this);
 
         this.socket.onData(data => this._onData(data));
         this.socket.onDisconnect( () => this._onDisconnect());
-        this.socket.onError(msg => { console.error("Socket error"); this._onDisconnect(); });
+        this.socket.onError(msg => { this.logger.error("Socket error"); this._onDisconnect(); });
 
         this._setupJanitorChannel();
 
@@ -105,7 +112,7 @@ class MessageComm
             message.addString("action", "ping");
             const asyncRet = await this.sendMessage(message, true, 10);
             if (!asyncRet.isSuccess()) {
-                console.error("Socket timeouted of inactivity, closing it.");
+                this.logger.error("Socket timeouted of inactivity, closing it.");
                 this.socket.disconnect();
                 return;
             }
@@ -153,14 +160,14 @@ class MessageComm
     {
         if (this.isClosed) {
             const err = "Socket is closed.";
-            console.error(err);
+            this.logger.error(err);
             return AsyncRet.Exception(err);
         }
 
         if (!buffers) {
             // This is a catch-em-all for messages who could not pack properly, for whatever reason.
             const err = "Send buffers are null. Error in packing message?";
-            console.error(err);
+            this.logger.error(err);
             return AsyncRet.Exception(err);
         }
 
@@ -169,7 +176,7 @@ class MessageComm
         if (!msgId) {
             if (callback || timeout != null || callbackTimeout != null) {
                 const err = "msgId must also be set if expecting callback or timeout.";
-                console.error(err);
+                this.logger.error(err);
                 return AsyncRet.Exception(err);
             }
         }
@@ -213,8 +220,8 @@ class MessageComm
         catch(e) {
             // We force a disconnect if sending fails.
             // The disconnect will resolve any promises with a SocketError
+            this.logger.error("Error writing on socket, disconnecting socket.");
             this.socket.disconnect();
-            console.error("Error writing on socket");
             return AsyncRet.SocketError("Failed to send, disconnecting");
         }
 
@@ -408,7 +415,7 @@ class MessageComm
                     let count = 0;
                     this.incomingBuffers.forEach( buffer => count = count + buffer.length );
                     if (count > this.maxBufferSize) {
-                        console.error("MessageComm buffer overload");
+                        this.logger.error("Buffer overload, disconnecting socket.");
                         this.socket.disconnect();
                         return;
                     }
@@ -602,7 +609,7 @@ class MessageComm
                 return null;
             }
             if (this.maxBufferSize > 0 && decoder.getLength() > this.maxBufferSize) {
-                console.error("Too large message getting fed on buffer, disconnecting socket.");
+                this.logger.error("Too large message getting fed on buffer, disconnecting socket.");
                 this.socket.disconnect();
                 return null;
             }
@@ -611,12 +618,12 @@ class MessageComm
             }
             const message = decoder.unpack();
             if (!message) {
-                console.error("Could not unpack incoming message");
+                this.logger.warn("Could not unpack incoming message");
             }
             return message;
         }
         catch(e) {
-            console.error("Error parsing message from buffers, disconnecting socket.");
+            this.logger.error("Error parsing message from buffers, disconnecting socket.");
             this.socket.disconnect();
             return null;
         }
@@ -685,14 +692,14 @@ class MessageComm
                         await this.routeMessage(actionOrReplyMsgId, incomingMsgId, props);
                     }
                     catch(e) {
-                        console.error(e);
+                        this.logger.error("Error routing message:", e);
                     }
                     this._decBusy(actionOrReplyMsgId);
                 }
             }
         }
         catch(e) {
-            console.error("Error routing message:", e);
+            this.logger.error("Error routing message:", e);
         }
     }
 
