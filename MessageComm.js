@@ -296,11 +296,13 @@ class MessageComm
 
     onDisconnect(fn)
     {
+        assert(fn, "fn parameter must be set");
         this._on("disconnect", fn);
     }
 
     offDisconnect(fn)
     {
+        assert(fn, "fn parameter must be set");
         this._off("disconnect", fn);
     }
 
@@ -768,15 +770,30 @@ class MessageComm
         this._onData();
     }
 
+    /**
+     * Internal event handler registration for on* events
+     * @param {string} event - event name
+     * @param {Function} fn - callback
+     */
     _on(event, fn)
     {
+        assert(this.eventHandlers, "Expected eventHandlers to be defined");
+        assert(event);
+        assert(fn);
         const fns = this.eventHandlers[event] || [];
         this.eventHandlers[event] = fns;
         fns.push(fn);
     }
 
+    /**
+     * Internal event handler registration for off* events.
+     * Removes previously added entry.
+     * @param {string} event - event name
+     * @param {Function} fn - callback
+     */
     _off(event, fn)
     {
+        assert(this.eventHandlers, "Expected eventHandlers to be defined");
         const fns = this.eventHandlers[event] || [];
         const index = fns.indexOf(fn);
         if (index > -1) {
@@ -784,8 +801,15 @@ class MessageComm
         }
     }
 
+    /**
+     * Internal event handler caller, which triggers previously added event
+     * by calling the registered function.
+     * @param {string} event - event name
+     * @param {any} data - callback data
+     */
     _triggerEvent(event, data)
     {
+        assert(this.eventHandlers, "Expected eventHandlers to be defined");
         const fns = this.eventHandlers[event] || [];
         fns.forEach( fn => {
             fn(data);
@@ -800,6 +824,7 @@ class MessageComm
      */
     setBufferSize(value)
     {
+        assert(this.defaultMaxBufferSize, "Expected defaultMaxBufferSize to be defined");
         this.maxBufferSize = value == null ? this.defaultMaxBufferSize : value;
     }
 }
