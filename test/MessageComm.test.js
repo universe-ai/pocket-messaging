@@ -735,4 +735,252 @@ describe("MessageComm", () => {
             assert(comm.socket.isDisconnected);
         });
     });
+
+    describe("_on", () => {
+        let comm;
+        let socket1;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => { comm = new MessageComm(socket1); });
+        });
+
+        test("eventHandlers is undefined", () => {
+            comm.eventHandlers = undefined;
+            assert.throws(() => { comm._on(undefined); }, /Expected eventHandlers to be defined/);
+        });
+
+        test("eventHandlers is null", () => {
+            comm.eventHandlers = null;
+            assert.throws(() => { comm._on(undefined); }, /Expected eventHandlers to be defined/);
+        });
+
+        test("eventHandlers is empty object", () => {
+            comm.eventHandlers = {};
+            assert.doesNotThrow(() => { comm._on("disconnected", function(){}); });
+            assert(Object.keys(comm.eventHandlers).length == 1);
+        });
+
+        test("event is undefined", () => {
+            assert(typeof comm.eventHandlers == "object");
+            assert(Object.keys(comm.eventHandlers).length == 0);
+            assert.throws(() => { comm._on(undefined); }, /[AssertionError: undefined == true]/);
+            assert(Object.keys(comm.eventHandlers).length == 0);
+        });
+
+        test("event is null", () => {
+            assert(typeof comm.eventHandlers == "object");
+            assert(Object.keys(comm.eventHandlers).length == 0);
+            assert.throws(() => { comm._on(null); }, /[AssertionError: null == true]/);
+            assert(Object.keys(comm.eventHandlers).length == 0);
+        });
+
+        test("event is string, missing fn", () => {
+            assert(typeof comm.eventHandlers == "object");
+            assert(Object.keys(comm.eventHandlers).length == 0);
+            assert.throws(() => { comm._on("disconnected"); }, /[AssertionError: undefined == true]/);
+            assert(Object.keys(comm.eventHandlers).length == 0);
+        });
+
+        test("fn is undefined", () => {
+            assert(typeof comm.eventHandlers == "object");
+            assert(Object.keys(comm.eventHandlers).length == 0);
+            assert.throws(() => { comm._on("disconnected", undefined); }, /[AssertionError: undefined == true]/);
+            assert(Object.keys(comm.eventHandlers).length == 0);
+        });
+
+        test("fn is null", () => {
+            assert(typeof comm.eventHandlers == "object");
+            assert(Object.keys(comm.eventHandlers).length == 0);
+            assert.throws(() => { comm._on("disconnected", null); }, /[AssertionError: null == true]/);
+            assert(Object.keys(comm.eventHandlers).length == 0);
+        });
+
+        test("event is string and fn is Function", () => {
+            assert(typeof comm.eventHandlers == "object");
+            assert(Object.keys(comm.eventHandlers).length == 0);
+            assert.doesNotThrow(() => { comm._on("disconnected", function(){}); });
+            assert(Object.keys(comm.eventHandlers).length == 1);
+            assert(comm.eventHandlers["disconnected"].length == 1);
+        });
+    });
+
+    describe("_off", () => {
+        let comm;
+        let socket1;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => { comm = new MessageComm(socket1); });
+        });
+
+        test("eventHandlers is undefined", () => {
+            comm.eventHandlers = undefined;
+            assert.throws(() => { comm._off(undefined); }, /Expected eventHandlers to be defined/);
+        });
+
+        test("eventHandlers is null", () => {
+            comm.eventHandlers = null;
+            assert.throws(() => { comm._off(undefined); }, /Expected eventHandlers to be defined/);
+        });
+
+        test("eventHandlers contains existing on event", () => {
+            const callback = function(){};
+            comm._on("disconnected", callback);
+            assert(Object.keys(comm.eventHandlers).length == 1);
+            assert.doesNotThrow(() => {
+                comm._off("disconnected", callback);
+                assert(Object.keys(comm.eventHandlers).length == 1);
+                assert(comm.eventHandlers["disconnected"].length == 0);
+            });
+        });
+
+        test("event is undefined", () => {
+            assert(typeof comm.eventHandlers == "object");
+            assert(Object.keys(comm.eventHandlers).length == 0);
+            assert.doesNotThrow(() => { comm._off(undefined); });
+            assert(Object.keys(comm.eventHandlers).length == 0);
+        });
+
+        test("event is null", () => {
+            assert(typeof comm.eventHandlers == "object");
+            assert(Object.keys(comm.eventHandlers).length == 0);
+            assert.doesNotThrow(() => { comm._off(null); });
+            assert(Object.keys(comm.eventHandlers).length == 0);
+        });
+
+        test("event is string, missing fn", () => {
+            comm.eventHandlers = {};
+            comm.eventHandlers["disconnected"] = function(){};
+            assert(Object.keys(comm.eventHandlers).length == 1);
+            assert.doesNotThrow(() => { comm._off("undefined"); });
+            assert(Object.keys(comm.eventHandlers).length == 1);
+        });
+
+        test("fn is undefined", () => {
+            assert(typeof comm.eventHandlers == "object");
+            assert(Object.keys(comm.eventHandlers).length == 0);
+            assert.doesNotThrow(() => { comm._off("disconnected", undefined); });
+            assert(Object.keys(comm.eventHandlers).length == 0);
+        });
+
+        test("fn is null", () => {
+            assert(typeof comm.eventHandlers == "object");
+            assert(Object.keys(comm.eventHandlers).length == 0);
+            assert.doesNotThrow(() => { comm._off("disconnected", null); });
+            assert(Object.keys(comm.eventHandlers).length == 0);
+        });
+    });
+
+    describe("_triggerEvent", () => {
+        let comm;
+        let socket1;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => { comm = new MessageComm(socket1); });
+        });
+
+        test("eventHandlers is undefined", () => {
+            comm.eventHandlers = undefined;
+            assert.throws(() => { comm._triggerEvent(undefined); }, /Expected eventHandlers to be defined/);
+        });
+
+        test("eventHandlers is null", () => {
+            comm.eventHandlers = null;
+            assert.throws(() => { comm._triggerEvent(undefined); }, /Expected eventHandlers to be defined/);
+        });
+
+        test("eventHandlers contains existing on event", () => {
+            let called1 = false;
+            comm._on("disconnected", function(d) {
+                called1 = d;
+            });
+            let called2 = false;
+            comm._on("disconnected", function(d) {
+                called2 = d;
+            });
+            let called3 = false;
+            comm._on("disconnected", function(d) {
+                called3 = d;
+            });
+            assert(Object.keys(comm.eventHandlers).length == 1);
+            assert.doesNotThrow(() => {
+                assert(called1 == false);
+                assert(called2 == false);
+                assert(called3 == false);
+                assert.doesNotThrow(() => {
+                    comm._triggerEvent("disconnected", true);
+                    assert(called1 == true);
+                    assert(called2 == true);
+                    assert(called3 == true);
+                });
+            });
+        });
+
+        test("event is undefined", () => {
+            assert(typeof comm.eventHandlers == "object");
+            assert(Object.keys(comm.eventHandlers).length == 0);
+            assert.doesNotThrow(() => { comm._triggerEvent(undefined); });
+            assert(Object.keys(comm.eventHandlers).length == 0);
+        });
+
+        test("event is null", () => {
+            assert(typeof comm.eventHandlers == "object");
+            assert(Object.keys(comm.eventHandlers).length == 0);
+            assert.doesNotThrow(() => { comm._triggerEvent(null); });
+            assert(Object.keys(comm.eventHandlers).length == 0);
+        });
+
+        test("event is string, missing fn", () => {
+            comm.eventHandlers = {};
+            comm.eventHandlers["disconnected"] = function(){};
+            assert(Object.keys(comm.eventHandlers).length == 1);
+            assert.doesNotThrow(() => { comm._triggerEvent("undefined"); });
+            assert(Object.keys(comm.eventHandlers).length == 1);
+        });
+
+        test("fn is undefined", () => {
+            assert(typeof comm.eventHandlers == "object");
+            assert(Object.keys(comm.eventHandlers).length == 0);
+            assert.doesNotThrow(() => { comm._triggerEvent("disconnected", undefined); });
+            assert(Object.keys(comm.eventHandlers).length == 0);
+        });
+
+        test("fn is null", () => {
+            assert(typeof comm.eventHandlers == "object");
+            assert(Object.keys(comm.eventHandlers).length == 0);
+            assert.doesNotThrow(() => { comm._triggerEvent("disconnected", null); });
+            assert(Object.keys(comm.eventHandlers).length == 0);
+        });
+    });
+
+    describe("setBufferSize", () => {
+        let comm;
+        let socket1;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => { comm = new MessageComm(socket1); });
+        });
+
+        test("defaultMaxBufferSize is unset", () => {
+            comm.defaultMaxBufferSize = null;
+            assert.throws(() => { comm.setBufferSize(1024); }, /Expected defaultMaxBufferSize to be defined/);
+        });
+
+        test("number is undefined", () => {
+            assert(comm.maxBufferSize == comm.defaultMaxBufferSize);
+            assert.doesNotThrow(() => { comm.setBufferSize(); });
+            assert(comm.maxBufferSize == comm.defaultMaxBufferSize);
+        });
+
+        test("number is null", () => {
+            assert(comm.maxBufferSize == comm.defaultMaxBufferSize);
+            assert.doesNotThrow(() => { comm.setBufferSize(null); });
+            assert(comm.maxBufferSize == comm.defaultMaxBufferSize);
+        });
+
+        test("number is valid", () => {
+            assert(comm.maxBufferSize == comm.defaultMaxBufferSize);
+            assert.doesNotThrow(() => { comm.setBufferSize(1024); });
+            assert(comm.maxBufferSize == 1024);
+        });
+    });
 });
