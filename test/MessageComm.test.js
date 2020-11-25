@@ -736,6 +736,77 @@ describe("MessageComm", () => {
         });
     });
 
+    describe("onDisconnect", () => {
+        let comm;
+        let socket1;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => { comm = new MessageComm(socket1); });
+        });
+
+        test("fn is undefined", () => {
+            comm.eventHandlers = undefined;
+            assert.throws(() => { comm.onDisconnect(undefined); }, /fn parameter must be set/);
+        });
+
+        test("fn is null", () => {
+            comm.eventHandlers = null;
+            assert.throws(() => { comm.onDisconnect(null); }, /fn parameter must be set/);
+        });
+
+        test("fn is not function", () => {
+            comm.eventHandlers = {};
+            assert.doesNotThrow(() => { comm.onDisconnect({}); });
+            assert(Object.keys(comm.eventHandlers).length == 1);
+        });
+
+        test("fn is function", () => {
+            assert(typeof comm.eventHandlers == "object");
+            assert(Object.keys(comm.eventHandlers).length == 0);
+            assert.doesNotThrow(() => { comm.onDisconnect(function(){}); });
+            assert(Object.keys(comm.eventHandlers).length == 1);
+            assert(comm.eventHandlers["disconnect"].length == 1);
+        });
+    });
+
+    describe("offDisconnect", () => {
+        let comm;
+        let socket1;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => { comm = new MessageComm(socket1); });
+        });
+
+        test("fn is undefined", () => {
+            comm.eventHandlers = undefined;
+            assert.throws(() => { comm.onDisconnect(undefined); }, /fn parameter must be set/);
+        });
+
+        test("fn is null", () => {
+            comm.eventHandlers = null;
+            assert.throws(() => { comm.onDisconnect(null); }, /fn parameter must be set/);
+        });
+
+        test("fn is not function", () => {
+            comm.eventHandlers = {};
+            assert.doesNotThrow(() => { comm.onDisconnect({}); });
+            assert(Object.keys(comm.eventHandlers).length == 1);
+        });
+
+        test("fn is function", () => {
+            assert(typeof comm.eventHandlers == "object");
+            assert(Object.keys(comm.eventHandlers).length == 0);
+            assert.doesNotThrow(() => {
+                const fn = function(){};
+                comm.onDisconnect(fn);
+                assert(Object.keys(comm.eventHandlers).length == 1);
+                assert(comm.eventHandlers["disconnect"].length == 1);
+                comm.offDisconnect(fn);
+                assert(comm.eventHandlers["disconnect"].length == 0);
+            });
+        });
+    });
+
     describe("_on", () => {
         let comm;
         let socket1;
@@ -751,7 +822,7 @@ describe("MessageComm", () => {
 
         test("eventHandlers is null", () => {
             comm.eventHandlers = null;
-            assert.throws(() => { comm._on(undefined); }, /Expected eventHandlers to be defined/);
+            assert.throws(() => { comm._on(null); }, /Expected eventHandlers to be defined/);
         });
 
         test("eventHandlers is empty object", () => {
@@ -819,7 +890,7 @@ describe("MessageComm", () => {
 
         test("eventHandlers is null", () => {
             comm.eventHandlers = null;
-            assert.throws(() => { comm._off(undefined); }, /Expected eventHandlers to be defined/);
+            assert.throws(() => { comm._off(null); }, /Expected eventHandlers to be defined/);
         });
 
         test("eventHandlers contains existing on event", () => {
