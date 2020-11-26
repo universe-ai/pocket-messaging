@@ -1054,4 +1054,112 @@ describe("MessageComm", () => {
             assert(comm.maxBufferSize == 1024);
         });
     });
+
+    describe("setRouter", () => {
+        let comm;
+        let socket1;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => { comm = new MessageComm(socket1); });
+        });
+
+        test("fn is undefined", () => {
+            assert(!comm.routeMessage);
+            assert.doesNotThrow(() => {
+                comm.setRouter();
+                assert(comm.routeMessage === undefined);
+            });
+        });
+
+        test("fn is null", () => {
+            assert(!comm.routeMessage);
+            assert.doesNotThrow(() => {
+                comm.setRouter(null);
+                assert(comm.routeMessage === null);
+            });
+        });
+
+        test("fn is function", () => {
+            assert(!comm.routeMessage);
+            assert.doesNotThrow(() => {
+                comm.setRouter(function(){});
+                assert(typeof comm.routeMessage == "function");
+            });
+        });
+
+        test("fn is not function", () => {
+            assert(!comm.routeMessage);
+            assert.doesNotThrow(() => {
+                comm.setRouter([]);
+                assert(typeof comm.routeMessage != "function");
+            });
+        });
+
+        test("routeAsBinary is undefined", () => {
+            assert(!comm.routeMessage);
+            assert.doesNotThrow(() => {
+                comm.setRouter(function(){});
+                assert(typeof comm.routeMessage == "function");
+                assert(comm.routeAsBinary == false);
+            });
+        });
+
+        test("routeAsBinary is null", () => {
+            assert(!comm.routeMessage);
+            assert.doesNotThrow(() => {
+                comm.setRouter(function(){}, null);
+                assert(typeof comm.routeMessage == "function");
+                assert(comm.routeAsBinary == false);
+            });
+
+        });
+
+        test("routeAsBinary is false", () => {
+            assert(!comm.routeMessage);
+            assert.doesNotThrow(() => {
+                comm.setRouter(function(){}, false);
+                assert(typeof comm.routeMessage == "function");
+                assert(comm.routeAsBinary == false);
+            });
+
+        });
+
+        test("routeAsBinary is true", () => {
+            assert(!comm.routeMessage);
+            assert.doesNotThrow(() => {
+                comm.setRouter(function(){}, true);
+                assert(typeof comm.routeMessage == "function");
+                assert(comm.routeAsBinary == true);
+            });
+
+        });
+
+        test("check _onData is called when routeAsBinary is set", () => {
+            assert(!comm.routeMessage);
+            assert.doesNotThrow(() => {
+                let called = false;
+                comm._onData = function() {
+                    called = true;
+                };
+                comm.setRouter(function(){}, true);
+                assert(typeof comm.routeMessage == "function");
+                assert(comm.routeAsBinary == true);
+                assert(called == true);
+            });
+        });
+
+        test("check _onData is not called when routeAsBinary is disabled", () => {
+            assert(!comm.routeMessage);
+            assert.doesNotThrow(() => {
+                let called = false;
+                comm._onData = function() {
+                    called = true;
+                };
+                comm.setRouter(function(){}, false);
+                assert(typeof comm.routeMessage == "function");
+                assert(comm.routeAsBinary == false);
+                assert(called == false);
+            });
+        });
+    });
 });
