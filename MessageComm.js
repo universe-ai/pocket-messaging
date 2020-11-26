@@ -10,9 +10,9 @@ class MessageComm
 {
     /**
      * @callback RouteMessageCallback
-     * @param  {object} action - message action.
-     * @param  {number} msgId - message id.
-     * @param  {Array}  data - message data.
+     * @param  {string} action - message action.
+     * @param  {string} msgId - message id.
+     * @param  {Object}  data - message data.
      */
 
     /**
@@ -309,7 +309,7 @@ class MessageComm
     /**
      * Set the router function where incoming (non-reply) messages are routed.
      *
-     * @param {Function} fn signature ({string} action, {string} msgId, {Object} props)
+     * @param {RouteMessageCallback} fn
      * @param {boolean | null} routeAsBinary if set to true then the raw incoming buffers
      *  are routed to the function. The function then has the signature (Array<Buffer>).
      *  Any corking of messages is ignored for this mode.
