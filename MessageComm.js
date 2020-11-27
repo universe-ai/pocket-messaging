@@ -714,6 +714,7 @@ class MessageComm
     {
         const o = this.busyCount[action];
         if (o) {
+            assert(typeof o.count == "number", "Expected count to be a valid number"); // To prevent unwanted behavior and NaN
             o.count++;
         }
     }
@@ -726,6 +727,7 @@ class MessageComm
     {
         const o = this.busyCount[action];
         if (o) {
+            assert(typeof o.count == "number", "Expected count to be a valid number"); // To prevent unwanted behavior and NaN
             o.count--;
         }
     }
