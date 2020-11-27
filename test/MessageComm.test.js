@@ -1162,4 +1162,122 @@ describe("MessageComm", () => {
             });
         });
     });
+
+    describe("drain", () => {
+        let comm;
+        let socket1;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => { comm = new MessageComm(socket1); });
+        });
+
+        test("check routeMessage and routeAsBinary side effects", () => {
+            assert(!comm.routeMessage);
+            assert.doesNotThrow(() => {
+                assert(comm.routeAsBinary == false);
+                comm.drain();
+                assert(comm.routeMessage === null);
+                assert(comm.routeAsBinary == true);
+            });
+        });
+
+        test("check _onData is called", () => {
+            assert(!comm.routeMessage);
+            assert.doesNotThrow(() => {
+                let called = false;
+                comm._onData = function() {
+                    called = true;
+                };
+                comm.drain(function(){}, true);
+                assert(called == true);
+            });
+        });
+    });
+
+    describe("cork", () => {
+        let comm;
+        let socket1;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => { comm = new MessageComm(socket1); });
+        });
+
+        test("check routeLimit", () => {
+            assert(!comm.routeMessage);
+            assert.doesNotThrow(() => {
+                comm.cork();
+                assert(comm.routeLimit == 0);
+            });
+        });
+    });
+
+    describe("uncork", () => {
+        let comm;
+        let socket1;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => { comm = new MessageComm(socket1); });
+        });
+
+        test("check routeLimit when undefined", () => {
+            assert(!comm.routeMessage);
+            assert.doesNotThrow(() => {
+                comm.uncork();
+                assert(comm.routeLimit == -1);
+            });
+        });
+
+        test("check routeLimit when null", () => {
+            assert(!comm.routeMessage);
+            assert.doesNotThrow(() => {
+                comm.uncork(null);
+                assert(comm.routeLimit == -1);
+            });
+        });
+
+        test("check routeLimit when valid number", () => {
+            assert(!comm.routeMessage);
+            assert.doesNotThrow(() => {
+                comm.uncork(3);
+                assert(comm.routeLimit == 3);
+            });
+        });
+
+        test("check _onData is called when number", () => {
+            assert(!comm.routeMessage);
+            assert.doesNotThrow(() => {
+                let called = false;
+                comm._onData = function() {
+                    called = true;
+                };
+                comm.uncork(3);
+                assert(called == true);
+            });
+        });
+
+        test("check _onData is called when null", () => {
+            assert(!comm.routeMessage);
+            assert.doesNotThrow(() => {
+                let called = false;
+                comm._onData = function() {
+                    called = true;
+                };
+                comm.uncork(null);
+                assert(called == true);
+            });
+        });
+
+        test("check _onData is called when undefined", () => {
+            assert(!comm.routeMessage);
+            assert.doesNotThrow(() => {
+                let called = false;
+                comm._onData = function() {
+                    called = true;
+                };
+                comm.uncork();
+                assert(called == true);
+            });
+        });
+    });
+
 });
