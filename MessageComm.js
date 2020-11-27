@@ -327,10 +327,11 @@ class MessageComm
     }
 
     /**
-     * Set the router in drain mode, all present and incoming data is discarded.
+     * Set the router in drain mode. All present and incoming data are discarded.
      * If MessageComm is corked, it will still be drained, but the cork settings
      * is preserved for when the drain is ended.
-     * To end the drain and put the router back into normal mode call setRouter().
+     * To end the drain and put the router back into normal mode call setRouter
+     * with appropriate parameters.
      */
     drain()
     {
