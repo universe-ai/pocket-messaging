@@ -1280,4 +1280,137 @@ describe("MessageComm", () => {
         });
     });
 
+    describe("_incBusy", () => {
+        let comm;
+        let socket1;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => { comm = new MessageComm(socket1); });
+        });
+
+        test("invalid action", () => {
+            assert.doesNotThrow(() => {
+                const action = "testaction";
+                assert(!comm.busyCount[action]);
+                assert.doesNotThrow(() => { comm._incBusy(action); });
+                assert(!comm.busyCount[action]);
+            });
+        });
+
+        test("valid action but inner count doesn't exist", () => {
+            assert.doesNotThrow(() => {
+                const action = "testaction";
+                comm.busyCount[action] = {};
+                assert.throws(() => { comm._incBusy(action); }, /Expected count to be a valid number/);
+                assert(!comm.busyCount[action].count);
+            });
+        });
+
+        test("valid action", () => {
+            assert.doesNotThrow(() => {
+                const action = "testaction";
+                comm.busyCount[action] = {
+                    "count": 6
+                };
+                assert.doesNotThrow(() => { comm._incBusy(action); });
+                assert(comm.busyCount[action].count == 7);
+            });
+        });
+    });
+
+    describe("_decBusy", () => {
+        let comm;
+        let socket1;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => { comm = new MessageComm(socket1); });
+        });
+
+        test("invalid action", () => {
+            assert.doesNotThrow(() => {
+                const action = "testaction";
+                assert(!comm.busyCount[action]);
+                assert.doesNotThrow(() => { comm._decBusy(action); });
+                assert(!comm.busyCount[action]);
+            });
+        });
+
+        test("valid action but inner count doesn't exist", () => {
+            assert.doesNotThrow(() => {
+                const action = "testaction";
+                comm.busyCount[action] = {};
+                assert.throws(() => { comm._decBusy(action); }, /Expected count to be a valid number/);
+                assert(!comm.busyCount[action].count);
+            });
+        });
+
+        test("valid action", () => {
+            assert.doesNotThrow(() => {
+                const action = "testaction";
+                comm.busyCount[action] = {
+                    "count": 5
+                };
+                assert.doesNotThrow(() => { comm._decBusy(action); });
+                assert(comm.busyCount[action].count == 4);
+            });
+        });
+    });
+
+    describe("isBusy", () => {
+        let comm;
+        let socket1;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => { comm = new MessageComm(socket1); });
+        });
+
+        test("invalid action", () => {
+            assert.doesNotThrow(() => {
+                const action = "testaction";
+                assert(!comm.busyCount[action]);
+                assert.doesNotThrow(() => {
+                    let isBusy = comm.isBusy(action);
+                    assert(isBusy == false);
+                });
+            });
+        });
+
+        test("valid action but inner count doesn't exist", () => {
+            assert.doesNotThrow(() => {
+                const action = "testaction";
+                comm.busyCount[action] = {};
+                assert.doesNotThrow(() => {
+                    let isBusy = comm.isBusy(action);
+                    assert(isBusy == false);
+                });
+            });
+        });
+
+        test("valid action but no max", () => {
+            assert.doesNotThrow(() => {
+                const action = "testaction";
+                comm.busyCount[action] = {
+                    "count": 5
+                };
+                assert.doesNotThrow(() => {
+                    let isBusy = comm.isBusy(action);
+                    assert(isBusy == false);
+                });
+            });
+        });
+
+        test("valid action and max", () => {
+            assert.doesNotThrow(() => {
+                const action = "testaction";
+                comm.busyCount[action] = {
+                    "count": 5,
+                    "max": 1
+                };
+                assert.doesNotThrow(() => {
+                    let isBusy = comm.isBusy(action);
+                    assert(isBusy == true);
+                });
+            });
+        });
+    });
 });
