@@ -706,6 +706,10 @@ class MessageComm
         }
     }
 
+    /**
+     * Increments the busy counter
+     * @param {string} action - action name
+     */
     _incBusy(action)
     {
         const o = this.busyCount[action];
@@ -714,6 +718,10 @@ class MessageComm
         }
     }
 
+    /**
+     * Decrements the busy counter
+     * @param {string} action - action name
+     */
     _decBusy(action)
     {
         const o = this.busyCount[action];
@@ -722,6 +730,10 @@ class MessageComm
         }
     }
 
+    /**
+     * Checks if count reports busy status
+     * @param {string} action - action name
+     */
     isBusy(action)
     {
         const o = this.busyCount[action];
