@@ -362,7 +362,7 @@ class MessageComm
     /**
      * Check timeout for messages who have a timeout > 0.
      * A message waiting for its first reply will get removed if timeouted.
-     * A callback timeout will invoke the onCallback with AsyncRet.Timeout() on ontervals, unless
+     * A callback timeout will invoke the onCallback with AsyncRet.Timeout() on intervals, unless
      * there is activity of incoming messages within the time of the interval.
      */
     _checkTimeouts()
@@ -371,6 +371,7 @@ class MessageComm
             const msgInFlight = this.msgsInFlight[msgId];
             const lastActivity = msgInFlight.lastActivity;
             if (msgInFlight.onReply) {
+                assert(lastActivity != null); // number + null == number
                 if (msgInFlight.timeout > 0 &&
                     Date.now() > msgInFlight.timeout + lastActivity) {
 
@@ -378,11 +379,13 @@ class MessageComm
                         msgInFlight.onReply(AsyncRet.Timeout());
                     }
                     catch(e) {
+                        this.logger.error("Error while running onCallback with Timeout. " + e);
                     }
                     this.clearPendingMessage(msgId);
                 }
             }
             else if (msgInFlight.onCallback) {
+                assert(lastActivity != null); // number + null == number
                 if (msgInFlight.callbackTimeout > 0 &&
                     Date.now() > msgInFlight.callbackTimeout + lastActivity) {
 
@@ -396,6 +399,7 @@ class MessageComm
                         }
                     }
                     catch(e) {
+                        this.logger.error("Error while running onCallback with Timeout. " + e);
                     }
                 }
             }
@@ -405,6 +409,10 @@ class MessageComm
         }
     }
 
+    /**
+     * Read, decrypt, decode and route message buffers.
+     * @param {Buffer | null} buffer - data
+     */
     _onData(buffer)
     {
         if (buffer != null) {
@@ -459,8 +467,6 @@ class MessageComm
         while (this.routeLimit !== 0) {
             const message = this._decodeIncoming();
             if (message) {
-                if (this.encrypt) {
-                }
                 if (this.routeLimit > 0) {
                     this.routeLimit--;
                 }
