@@ -1280,6 +1280,221 @@ describe("MessageComm", () => {
         });
     });
 
+    describe("_checkTimeouts", () => {
+        let comm;
+        let socket1;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => {
+                comm = new MessageComm(socket1);
+                comm.isClosed = true;
+            });
+        });
+
+        test("msgsInFlight is undefined", () => {
+            comm.msgsInFlight = undefined;
+            assert.throws(() => comm._checkTimeouts(), /TypeError: Cannot convert undefined or null to object/);
+        });
+
+        test("msgsInFlight is null", () => {
+            comm.msgsInFlight = null;
+            assert.throws(() => comm._checkTimeouts(), /TypeError: Cannot convert undefined or null to object/);
+        });
+
+        test("isClosed is true", () => {
+            jest.useFakeTimers();
+            comm.isClosed = true;
+            assert.doesNotThrow(() => {
+                comm._checkTimeouts();
+                expect(setTimeout).not.toHaveBeenCalledTimes(1);
+            });
+        });
+
+        test("isClosed is false", () => {
+            jest.useFakeTimers();
+            comm.isClosed = false;
+            assert.doesNotThrow(() => {
+                comm._checkTimeouts();
+                expect(setTimeout).toHaveBeenCalledTimes(1);
+            });
+        });
+
+        test("onReply is set but clearPendingMessage is not triggered", () => {
+            let onReplyCalled = false;
+            comm.msgsInFlight["testid"] = {
+                onReply: function() {
+                    onReplyCalled = true;
+                },
+                lastActivity: Date.now(),
+                timeout: 0
+            };
+            let clearPendingMessageCalled = false;
+            comm.clearPendingMessage = function(_) {
+                clearPendingMessageCalled = true;
+            }
+            assert.doesNotThrow(() => {
+                comm._checkTimeouts();
+                assert(onReplyCalled == false);
+                assert(clearPendingMessageCalled == false);
+            });
+        });
+
+        test("clearPendingMessage triggered by onReply", () => {
+            comm.msgsInFlight["testid"] = {
+                onReply: function() {},
+                lastActivity: Date.now()-10,
+                timeout: 1
+            };
+            let clearPendingMessageCalled = false;
+            comm.clearPendingMessage = function(_) {
+                clearPendingMessageCalled = true;
+            }
+            comm.timeout = 0;
+            assert.doesNotThrow(() => {
+                comm._checkTimeouts();
+                assert(clearPendingMessageCalled == true);
+            });
+        });
+
+        test("onCallback is set but clearPendingMessage is not triggered", () => {
+            let onCallbackCalled = false;
+            comm.msgsInFlight["testid"] = {
+                onCallback: function() {
+                    onCallbackCalled = true;
+                },
+                lastActivity: Date.now(),
+                callbackTimeout: 0
+            };
+            let clearPendingMessageCalled = false;
+            comm.clearPendingMessage = function(_) {
+                clearPendingMessageCalled = true;
+            }
+            assert.doesNotThrow(() => {
+                comm._checkTimeouts();
+                assert(onCallbackCalled == false);
+                assert(clearPendingMessageCalled == false);
+            });
+        });
+
+        test("clearPendingMessage triggered by onCallback", (done) => {
+            comm.msgsInFlight["testid"] = {
+                onCallback: function() {
+                    return false;
+                },
+                lastActivity: Date.now()-10,
+                callbackTimeout: 1
+            };
+            let clearPendingMessageCalled = false;
+            comm.clearPendingMessage = function(_) {
+                clearPendingMessageCalled = true;
+            }
+            assert.doesNotThrow(async () => {
+                await comm._checkTimeouts();
+                assert(clearPendingMessageCalled == true);
+                done();
+            });
+        });
+    });
+
+    describe("_onData", () => {
+        let comm;
+        let socket1;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => {
+                comm = new MessageComm(socket1);
+                comm.isClosed = true;
+            });
+        });
+
+        test("buffer is undefined", () => {
+            assert.doesNotThrow(() => comm._onData());
+        });
+
+        test("buffer is null", () => {
+            assert.doesNotThrow(() => comm._onData(null));
+        });
+
+        test("buffer is set but not Buffer", () => {
+            assert.throws(() => comm._onData([]), /Socket error, Buffer not read/);
+        });
+
+        test("buffer is Buffer", () => {
+            assert.doesNotThrow(() => {
+                comm._onData(Buffer.from("test"));
+            });
+        });
+
+        test("buffer is empty", () => {
+            assert.doesNotThrow(() => {
+                comm._onData(Buffer.from(""));
+            });
+        });
+
+        test("buffer length is bigger than maxBufferSize", () => {
+            assert(comm.socket.isDisconnected == false);
+            assert.doesNotThrow(() => comm._onData(Buffer.alloc(comm.maxBufferSize+1)));
+            assert(comm.socket.isDisconnected == true);
+        });
+
+        test("buffer length is big but maxBufferSize is unset", () => {
+            assert(comm.socket.isDisconnected == false);
+            comm.maxBufferSize = 0;
+            assert.doesNotThrow(() => comm._onData(Buffer.alloc(comm.maxBufferSize+1)));
+            assert(comm.socket.isDisconnected == false);
+        });
+
+        test("route as binary with router", () => {
+            let called = false;
+            comm.routeMessage = function() {
+                called = true;
+            };
+            comm.routeAsBinary = true;
+            assert.doesNotThrow(() => {
+                assert(called == false);
+                comm._onData(Buffer.alloc(1));
+                assert(called == true);
+            });
+        });
+
+        test("route as binary without router", () => {
+            comm.routeAsBinary = true;
+            comm.routeMessage = null;
+            assert.doesNotThrow(() => {
+                comm._onData(Buffer.alloc(1));
+                assert(comm.incomingBuffers.length == 0);
+            });
+        });
+
+        test("decrypt buffer when route limit is non-zero", () => {
+            let called = false;
+            comm._decryptBuffers = function() {
+                called = true;
+            }
+            assert.doesNotThrow(() => {
+                assert(called == false);
+                comm._onData(Buffer.alloc(1));
+                assert(called == true);
+            });
+        });
+
+        test("decode and route", () => {
+            let called = false;
+            comm._decodeIncoming = function() {
+                return true;
+            }
+            comm._routeMessage = function() {
+                called = true;
+            }
+            assert.doesNotThrow(() => {
+                assert(called == false);
+                comm.routeLimit = 1;
+                comm._onData(Buffer.alloc(1));
+                assert(called == true);
+            });
+        });
+    });
+
     describe("_incBusy", () => {
         let comm;
         let socket1;
