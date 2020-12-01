@@ -1548,6 +1548,85 @@ describe("MessageComm", () => {
                 assert(comm.incomingBuffers.length == 4);
             });
         });
+
+        test("encrypt is set: extract and decrypt data", () => {
+            comm.encrypt = true;
+
+            comm.encrypt = null;
+            const keyPair1 = nacl.box.keyPair();
+            const keyPair2 = nacl.box.keyPair();
+            comm.setEncrypt(keyPair1, keyPair2.publicKey)
+
+            let data = [ Buffer.from("Test1 and test2") ];
+            const buffers = comm._encryptBuffers(data);
+            comm.incomingBuffers = buffers;
+
+            assert.doesNotThrow(() => {
+                assert(comm.decryptedBuffers.length == 0);
+                const status = comm._decryptBuffers();
+                assert(status == true);
+                assert(data == comm.decryptedBuffers.toString());
+                assert(comm.decryptedBuffers.length == 1);
+                assert(comm.incomingBuffers.length == 0);
+            });
+        });
+    });
+
+    describe("_encryptBuffers", () => {
+        let comm;
+        let socket1;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => {
+                comm = new MessageComm(socket1);
+                comm.isClosed = true;
+            });
+        });
+
+        test("encrypt is unset", () => {
+            comm.encrypt = false;
+            let buffers = [ Buffer.from("") ];
+
+            comm.encrypt = null;
+            const keyPair1 = nacl.box.keyPair();
+            const keyPair2 = nacl.box.keyPair();
+            comm.setEncrypt(keyPair1, keyPair2.publicKey)
+
+            assert.doesNotThrow(() => {
+                const result = comm._encryptBuffers(buffers);
+                assert(result.length == 1);
+            });
+        });
+
+        test("encrypt is set and data to encrypt is less than 1MiB", () => {
+            comm.encrypt = true;
+            let buffers = [ Buffer.from("Testing One, Two") ];
+
+            comm.encrypt = null;
+            const keyPair1 = nacl.box.keyPair();
+            const keyPair2 = nacl.box.keyPair();
+            comm.setEncrypt(keyPair1, keyPair2.publicKey)
+
+            assert.doesNotThrow(() => {
+                const result = comm._encryptBuffers(buffers);
+                assert(result.length == 1);
+            });
+        });
+
+        test("encrypt is set: chunk and assemble final message", () => {
+            comm.encrypt = true;
+            let buffers = [ Buffer.alloc(1024 * 1024 * 10), Buffer.alloc(4096), Buffer.alloc(1024 * 1024 * 5), Buffer.alloc(1024*1024*5) ];
+
+            comm.encrypt = null;
+            const keyPair1 = nacl.box.keyPair();
+            const keyPair2 = nacl.box.keyPair();
+            comm.setEncrypt(keyPair1, keyPair2.publicKey)
+
+            assert.doesNotThrow(() => {
+                const result = comm._encryptBuffers(buffers);
+                assert(result.length == 3);
+            });
+        });
     });
 
     describe("_incBusy", () => {
