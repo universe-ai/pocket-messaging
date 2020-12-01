@@ -483,6 +483,7 @@ class MessageComm
      * Take incomingBuffers and decrypt (or just move) them to decryptedBuffers.
      * Some or all data can be left in incomingBuffers because we need complete
      * chunks to decrypt.
+     * @return {boolean} - Flagged with false when not enough buffer data is available for reading. True on success.
      */
     _decryptBuffers()
     {
@@ -544,6 +545,7 @@ class MessageComm
     /**
      * Encrypt or just copy buffers.
      * @param {Array<Buffer>} buffers
+     * @return {Array<Buffer>} - copied data buffer or, in case the encrypt flag is set, return the encrypted buffers.
      */
     _encryptBuffers(buffers)
     {
