@@ -1495,6 +1495,61 @@ describe("MessageComm", () => {
         });
     });
 
+    describe("_decryptBuffers", () => {
+        let comm;
+        let socket1;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => {
+                comm = new MessageComm(socket1);
+                comm.isClosed = true;
+            });
+        });
+
+        test("encrypt is unset", () => {
+            comm.encrypt = false;
+            comm.incomingBuffers = [ Buffer.from("") ];
+            assert.doesNotThrow(() => {
+                assert(comm.decryptedBuffers.length == 0);
+                const status = comm._decryptBuffers();
+                assert(status == true);
+                assert(comm.decryptedBuffers.length == 1);
+                assert(comm.incomingBuffers.length == 0);
+            });
+        });
+
+        test("encrypt is set and incoming buffer is too short", () => {
+            comm.encrypt = true;
+            comm.incomingBuffers = [ Buffer.from("") ];
+            assert.doesNotThrow(() => {
+                assert(comm.decryptedBuffers.length == 0);
+                const status = comm._decryptBuffers();
+                assert(status == false);
+                assert(comm.decryptedBuffers.length == 0);
+                assert(comm.incomingBuffers.length == 1);
+            });
+        });
+
+        test("encrypt is set and inner incoming buffer data is too short", () => {
+            comm.encrypt = true;
+            const buffers = [
+                Buffer.from([0x80, 0x00, 0x00, 0x00]),
+                Buffer.from([0x33, 0x32]),
+                Buffer.from([0x31]),
+                Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+            ];
+            comm.incomingBuffers = buffers;
+            comm.incomingBuffers[0].writeUInt32LE(128);
+            assert.doesNotThrow(() => {
+                assert(comm.decryptedBuffers.length == 0);
+                const status = comm._decryptBuffers();
+                assert(status == false);
+                assert(comm.decryptedBuffers.length == 0);
+                assert(comm.incomingBuffers.length == 4);
+            });
+        });
+    });
+
     describe("_incBusy", () => {
         let comm;
         let socket1;
