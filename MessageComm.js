@@ -588,6 +588,9 @@ class MessageComm
         }
     }
 
+    /**
+     * Internal disconnect procedure called when the event is triggered.
+     */
     _onDisconnect()
     {
         // Notify all messages pending reply
@@ -611,6 +614,7 @@ class MessageComm
     /**
      * Attempt at decoding an incoming message and pass it to its message handler.
      * Look at the initial frame to get the total length of the transfer.
+     * @return {object | null} - Message object on success.
      */
     _decodeIncoming()
     {
@@ -756,9 +760,14 @@ class MessageComm
     }
 
     /**
-     * Limit the nr of message of a specific action being processed simultaneously.
+     * Add or modify an existing busy counter maximum simulataneous actions.
+     *
+     * Limit the number of messages being processed simultaneously for a specific action.
      * Messages coming in after the limit has been reached will get an AsyncRet.Busy() returned.
-     * This is how we trottle data on the socket, the sender side will need to slow down when it recives the busy notification.
+     * This is how we throttle data on the socket, the sender side will need to slow down when it receives the busy notification.
+     *
+     * @param {string} action - action name
+     * @param {number} max - maximum number of simultaneous messages allowed to be processed
      */
     throttleAction(action, max)
     {
