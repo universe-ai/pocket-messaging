@@ -955,8 +955,8 @@ describe("MessageDecoder", () => {
     });
 
     describe("constructor", () => {
-        test("Missing required packed message buffers argument", () => {
-            assert.throws(() => new MessageEncoder(), /TypeError \[ERR_INVALID_ARG_TYPE\]/);
+        test("Empty decoder", () => {
+            assert.doesNotThrow(() => new MessageDecoder());
         });
 
         test("Create new decoder object", () => {
