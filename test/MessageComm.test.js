@@ -1629,6 +1629,148 @@ describe("MessageComm", () => {
         });
     });
 
+    describe("_onDisconnect", () => {
+        let comm;
+        let socket1;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => {
+                comm = new MessageComm(socket1);
+                comm.isClosed = true;
+            });
+        });
+
+        test("msgsInFlight contains onReply", () => {
+            let asyncRet;
+            comm.msgsInFlight["testid"] = {
+                onReply: function(ret) {
+                    asyncRet = ret;
+                    return false;
+                }
+            };
+            assert.doesNotThrow(() => {
+                comm._onDisconnect();
+                assert(asyncRet.isSocketError());
+            });
+        });
+
+        test("msgsInFlight contains onCallback", () => {
+            let asyncRet;
+            comm.msgsInFlight["testid"] = {
+                onCallback: function(ret) {
+                    asyncRet = ret;
+                    return false;
+                }
+            };
+            assert.doesNotThrow(() => {
+                comm._onDisconnect();
+                assert(asyncRet.isSocketError());
+            });
+        });
+
+        test("msgsInFlight is cleared after processing", () => {
+            comm.msgsInFlight["testid"] = {
+            };
+            assert.doesNotThrow(() => {
+                assert(comm.msgsInFlight["testid"]);
+                comm._onDisconnect();
+                assert(!comm.msgsInFlight["testid"]);
+            });
+        });
+
+        test("isClosed is set", () => {
+            assert.doesNotThrow(() => {
+                comm.isClosed = false;
+                comm._onDisconnect();
+                assert(comm.isClosed = true);
+            });
+        });
+
+        test("triggerEvent is called with disconnect", () => {
+            let event;
+            comm._triggerEvent = function(evt) {
+                event = evt;
+            };
+            assert.doesNotThrow(() => {
+                assert(!event);
+                comm._onDisconnect();
+                assert(event == "disconnect");
+            });
+        });
+    });
+
+    describe("_decodeIncoming", () => {
+        let comm;
+        let socket1;
+        let RANDOM_MESSAGE_ACTION;
+        let RANDOM_MESSAGE_ID;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => {
+                comm = new MessageComm(socket1);
+                comm.isClosed = true;
+            });
+            RANDOM_MESSAGE_ACTION = crypto.randomBytes(KEY_LENGTH).toString("ascii").slice(0, KEY_LENGTH);
+            RANDOM_MESSAGE_ID = crypto.randomBytes(4).toString("hex");
+        });
+
+        test("bad decryptedBuffers data", () => {
+            comm.decryptedBuffers = undefined;
+            assert.doesNotThrow(() => {
+                const message = comm._decodeIncoming();
+                assert(message == null);
+            });
+        });
+
+        test("decoder length is bigger than max buffer size", () => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            const messageDataKey = "data is a string";
+            const messageDataValue = "a string";
+            message.add(messageDataKey, messageDataValue);
+            const messagePacked = message.pack();
+            comm.decryptedBuffers = messagePacked;
+            comm.maxBufferSize = 1;
+            assert.doesNotThrow(() => {
+                const message = comm._decodeIncoming();
+                assert(comm.socket.isDisconnected == true);
+                assert(message == null);
+            });
+        });
+
+        test.skip("decoder is not ready", () => {
+        });
+
+        test("decoder unable to unpack", () => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            const messageDataKey = "data is a string";
+            const messageDataValue = "a string";
+            message.add(messageDataKey, messageDataValue);
+            const messagePacked = message.pack();
+            comm.decryptedBuffers = messagePacked;
+            comm.decryptedBuffers[1].writeUInt8(255, 0);
+            assert.doesNotThrow(() => {
+                const message = comm._decodeIncoming();
+                assert(message == null);
+            });
+        });
+
+        test("decoder successfully unpack", () => {
+            const message = new MessageEncoder(RANDOM_MESSAGE_ACTION, RANDOM_MESSAGE_ID)
+            const messageDataKey = "data is a string";
+            const messageDataValue = "a string";
+            message.add(messageDataKey, messageDataValue);
+            const messagePacked = message.pack();
+            comm.decryptedBuffers = messagePacked;
+            assert.doesNotThrow(() => {
+                const message = comm._decodeIncoming();
+                assert(message[0] == RANDOM_MESSAGE_ACTION);
+                assert(message[1] == RANDOM_MESSAGE_ID);
+                assert(message[2].hasOwnProperty(messageDataKey));
+                assert(message[2][messageDataKey] == messageDataValue);
+            });
+        });
+    });
+
     describe("_incBusy", () => {
         let comm;
         let socket1;
@@ -1759,6 +1901,68 @@ describe("MessageComm", () => {
                     let isBusy = comm.isBusy(action);
                     assert(isBusy == true);
                 });
+            });
+        });
+    });
+
+    describe("throttleAction", () => {
+        let comm;
+        let socket1;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => { comm = new MessageComm(socket1); });
+        });
+
+        test("action is null", () => {
+            assert.doesNotThrow(() => {
+                comm.throttleAction(null);
+            });
+        });
+
+        test("action is undefined", () => {
+            assert.doesNotThrow(() => {
+                comm.throttleAction(undefined);
+            });
+        });
+
+        test("action is string", () => {
+            assert.doesNotThrow(() => {
+                const action = "action1";
+                comm.throttleAction(action);
+                assert(comm.busyCount.hasOwnProperty(action));
+                assert(comm.busyCount[action].count == 0);
+                assert(comm.busyCount[action].max == undefined);
+            });
+        });
+
+        test("max is undefined", () => {
+            assert.doesNotThrow(() => {
+                const action = "action1";
+                comm.throttleAction(action, undefined);
+                assert(comm.busyCount.hasOwnProperty(action));
+                assert(comm.busyCount[action].count == 0);
+                assert(comm.busyCount[action].max == undefined);
+            });
+        });
+
+        test("max is null", () => {
+            assert.doesNotThrow(() => {
+                const action = "action1";
+                comm.throttleAction(action, null);
+                assert(comm.busyCount.hasOwnProperty(action));
+                assert(comm.busyCount[action].count == 0);
+                assert(comm.busyCount[action].max == null);
+            });
+        });
+
+        test("max is number", () => {
+            assert.doesNotThrow(() => {
+                const action = "action1";
+                assert(!comm.busyCount.hasOwnProperty(action));
+                comm.throttleAction(action, 3);
+                assert(comm.busyCount.hasOwnProperty(action));
+                assert(comm.busyCount[action].count == 0);
+                assert(comm.busyCount[action].max == 3);
             });
         });
     });
