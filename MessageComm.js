@@ -614,7 +614,7 @@ class MessageComm
     /**
      * Attempt at decoding an incoming message and pass it to its message handler.
      * Look at the initial frame to get the total length of the transfer.
-     * @return {object | null} - Message object on success.
+     * @return {Array<{string | null} action, {string | null} messageId, {Object} props> | null} - Message on success
      */
     _decodeIncoming()
     {
@@ -648,10 +648,12 @@ class MessageComm
      * Route incoming messages from the socket.
      * If action field matches a stored message ID then the incoming message
      * is treated as a reply.
-     * A first reply will resolve the returned promise returned when calling send(),
+     * A first reply will resolve the returned promise when calling send(),
      * any more replies will be routed to any callback function provided when calling send().
      * If the first reply is not successful then the message will be cleared from memory
      * so no callback can arrive.
+     *
+     * @param {Array<{string | null} action, {string | null} messageId, {Object} props>} - Message on success
      */
     async _routeMessage(message)
     {
@@ -781,6 +783,9 @@ class MessageComm
      * Data sent on socket will be encrypted and data decoded will first be decrypted.
      * Data is not decodes as it arrives, because of a corked MessageComm needs to be able to
      * enable encryption on already buffered up data.
+     *
+     * @param {Object} keyPair - key pair to be used for encrypting and decrypting data
+     * @param {Uint8Array} peerPublicKey - peer public key to be used for public-key authenticated encryption
      */
     setEncrypt(keyPair, peerPublicKey)
     {
