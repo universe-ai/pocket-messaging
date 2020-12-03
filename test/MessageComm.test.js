@@ -117,8 +117,8 @@ describe("General", () => {
         const keyPair1        = nacl.box.keyPair();
         const keyPair2        = nacl.box.keyPair();
 
-        m1.setEncrypt(keyPair1, keyPair2.publicKey)
-        m2.setEncrypt(keyPair2, keyPair1.publicKey)
+        m1.setEncrypt(keyPair1, keyPair2.publicKey);
+        m2.setEncrypt(keyPair2, keyPair1.publicKey);
 
         const buf = Buffer.from("Hello");
         console.log("clear", buf);
@@ -1771,6 +1771,207 @@ describe("MessageComm", () => {
         });
     });
 
+    describe("_routeMessage", () => {
+        let comm;
+        let socket1;
+        let RANDOM_MESSAGE_ACTION;
+        let RANDOM_MESSAGE_ID;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => {
+                comm = new MessageComm(socket1);
+                comm.isClosed = true;
+            });
+            RANDOM_MESSAGE_ACTION = crypto.randomBytes(KEY_LENGTH).toString("ascii").slice(0, KEY_LENGTH);
+            RANDOM_MESSAGE_ID = crypto.randomBytes(4).toString("hex");
+        });
+
+        test("message is undefined", (done) => {
+            assert.doesNotThrow(async() => {
+                let msgsLen = comm.msgsInFlight.length;
+                await comm._routeMessage();
+                assert(msgsLen == comm.msgsInFlight.length);
+                done();
+            });
+        });
+
+        test("message is null", (done) => {
+            assert.doesNotThrow(async() => {
+                let msgsLen = comm.msgsInFlight.length;
+                await comm._routeMessage(null);
+                assert(msgsLen == comm.msgsInFlight.length);
+                done();
+            });
+        });
+
+        test("msgInFlight does not exist: busy", (done) => {
+            assert.doesNotThrow(async() => {
+                const message = [
+                    "3GDCC6~P1\u001b{q@v!yP3TZJ\u0005g\u001e-pQ\u001d!hU.Ao5\u0006h/HSGk20\u0018Nbdk\t\u0012+\rB\u0003%nZ\u000fh'>\u0002Is\u00013<R(!G\u0001\u0019\u0000IUm\u001c]A&tuxn\u000e!-b\u0001D,K\u0016PDt\u0015B\u0004Kun6(2T//F\u0018\fnS\u0014\u0003VLIhJdgH\u001f!L9\u0011HP\u0017\u0011,\u0012#$Z\u0011\u001dXNO*l6|l.r]Md'7Tja>\u0007P\t\u0013*U<FF@=zdi<J&DR[k cC\u0018W9\u0005L-\u0017\u0006x/nah58B\u0011\u0006\tp,#\u0002\u0016WD3|\u000fD\b3h\u0010\u0001oqJ@e -&\u0002o\n" + "*!\tPOXS\u0007X\u0007I\t/iPM*;ND/",
+                    "22004846",
+                    { "data is a string": "a string" }
+                ];
+                comm.isBusy = function() {
+                    return true;
+                };
+                let called = false;
+                comm.sendMessage = function() {
+                    called = true;
+                }
+                let msgsLen = comm.msgsInFlight.length;
+                await comm._routeMessage(message);
+                assert(msgsLen == comm.msgsInFlight.length);
+                assert(called == true);
+                done();
+            });
+        });
+
+        test("msgInFlight does not exist: routeMessage is set", (done) => {
+            assert.doesNotThrow(async() => {
+                const message = [
+                    "3GDCC6~P1\u001b{q@v!yP3TZJ\u0005g\u001e-pQ\u001d!hU.Ao5\u0006h/HSGk20\u0018Nbdk\t\u0012+\rB\u0003%nZ\u000fh'>\u0002Is\u00013<R(!G\u0001\u0019\u0000IUm\u001c]A&tuxn\u000e!-b\u0001D,K\u0016PDt\u0015B\u0004Kun6(2T//F\u0018\fnS\u0014\u0003VLIhJdgH\u001f!L9\u0011HP\u0017\u0011,\u0012#$Z\u0011\u001dXNO*l6|l.r]Md'7Tja>\u0007P\t\u0013*U<FF@=zdi<J&DR[k cC\u0018W9\u0005L-\u0017\u0006x/nah58B\u0011\u0006\tp,#\u0002\u0016WD3|\u000fD\b3h\u0010\u0001oqJ@e -&\u0002o\n" + "*!\tPOXS\u0007X\u0007I\t/iPM*;ND/",
+                    "22004846",
+                    { "data is a string": "a string" }
+                ];
+                comm.routeMessage = function() {
+                    return true;
+                };
+                let called = false;
+                comm.routeMessage = function() {
+                    called = true;
+                }
+                let msgsLen = comm.msgsInFlight.length;
+                await comm._routeMessage(message);
+                assert(msgsLen == comm.msgsInFlight.length);
+                assert(called == true);
+                done();
+            });
+        });
+
+        test("msgInFlight exists: cancel callback", (done) => {
+            assert.doesNotThrow(async() => {
+                const message = [
+                    "3GDCC6~P1\u001b{q@v!yP3TZJ\u0005g\u001e-pQ\u001d!hU.Ao5\u0006h/HSGk20\u0018Nbdk\t\u0012+\rB\u0003%nZ\u000fh'>\u0002Is\u00013<R(!G\u0001\u0019\u0000IUm\u001c]A&tuxn\u000e!-b\u0001D,K\u0016PDt\u0015B\u0004Kun6(2T//F\u0018\fnS\u0014\u0003VLIhJdgH\u001f!L9\u0011HP\u0017\u0011,\u0012#$Z\u0011\u001dXNO*l6|l.r]Md'7Tja>\u0007P\t\u0013*U<FF@=zdi<J&DR[k cC\u0018W9\u0005L-\u0017\u0006x/nah58B\u0011\u0006\tp,#\u0002\u0016WD3|\u000fD\b3h\u0010\u0001oqJ@e -&\u0002o\n" + "*!\tPOXS\u0007X\u0007I\t/iPM*;ND/",
+                    "22004846",
+                    { "data is a string": "a string" }
+                ];
+                let onCallbackCalled = false;
+                let onReplyCalled = false;
+                comm.msgsInFlight[message[0]] = {
+                    onCallback: function() {
+                        onCallbackCalled = true;
+                    },
+                    onReply: function() {
+                        onReplyCalled = true;
+                    },
+                    lastActivity: Date.now(),
+                    timeout: 0
+                };
+                let msgsLen = comm.msgsInFlight.length;
+                await comm._routeMessage(message);
+                assert(msgsLen == comm.msgsInFlight.length);
+                assert(onCallbackCalled == false);
+                done();
+            });
+        });
+
+        test("msgInFlight exists: onReply is set", (done) => {
+            assert.doesNotThrow(async() => {
+                const message = [
+                    "3GDCC6~P1\u001b{q@v!yP3TZJ\u0005g\u001e-pQ\u001d!hU.Ao5\u0006h/HSGk20\u0018Nbdk\t\u0012+\rB\u0003%nZ\u000fh'>\u0002Is\u00013<R(!G\u0001\u0019\u0000IUm\u001c]A&tuxn\u000e!-b\u0001D,K\u0016PDt\u0015B\u0004Kun6(2T//F\u0018\fnS\u0014\u0003VLIhJdgH\u001f!L9\u0011HP\u0017\u0011,\u0012#$Z\u0011\u001dXNO*l6|l.r]Md'7Tja>\u0007P\t\u0013*U<FF@=zdi<J&DR[k cC\u0018W9\u0005L-\u0017\u0006x/nah58B\u0011\u0006\tp,#\u0002\u0016WD3|\u000fD\b3h\u0010\u0001oqJ@e -&\u0002o\n" + "*!\tPOXS\u0007X\u0007I\t/iPM*;ND/",
+                    "22004846",
+                    { "data is a string": "a string" }
+                ];
+                let onCallbackCalled = false;
+                let onReplyCalled = false;
+                comm.msgsInFlight[message[0]] = {
+                    onReply: function() {
+                        onReplyCalled = true;
+                    },
+                    lastActivity: Date.now(),
+                    timeout: 0
+                };
+                await comm._routeMessage(message);
+                assert(!comm.msgsInFlight[message[0]]);
+                done();
+            });
+        });
+
+        test("msgInFlight exists: onCallback is set", (done) => {
+            assert.doesNotThrow(async() => {
+                const message = [
+                    "3GDCC6~P1\u001b{q@v!yP3TZJ\u0005g\u001e-pQ\u001d!hU.Ao5\u0006h/HSGk20\u0018Nbdk\t\u0012+\rB\u0003%nZ\u000fh'>\u0002Is\u00013<R(!G\u0001\u0019\u0000IUm\u001c]A&tuxn\u000e!-b\u0001D,K\u0016PDt\u0015B\u0004Kun6(2T//F\u0018\fnS\u0014\u0003VLIhJdgH\u001f!L9\u0011HP\u0017\u0011,\u0012#$Z\u0011\u001dXNO*l6|l.r]Md'7Tja>\u0007P\t\u0013*U<FF@=zdi<J&DR[k cC\u0018W9\u0005L-\u0017\u0006x/nah58B\u0011\u0006\tp,#\u0002\u0016WD3|\u000fD\b3h\u0010\u0001oqJ@e -&\u0002o\n" + "*!\tPOXS\u0007X\u0007I\t/iPM*;ND/",
+                    "22004846",
+                    { "data is a string": "a string" }
+                ];
+                let onCallbackCalled = false;
+                let onReplyCalled = false;
+                comm.msgsInFlight[message[0]] = {
+                    onCallback: function() {
+                        onCallbackCalled = true;
+                        return false;
+                    },
+                    lastActivity: Date.now(),
+                    timeout: 0
+                };
+                assert(comm.msgsInFlight[message[0]]);
+                await comm._routeMessage(message);
+                assert(!comm.msgsInFlight[message[0]]);
+                done();
+            });
+        });
+
+        test("msgInFlight exists: onCallback is set, return is false", (done) => {
+            assert.doesNotThrow(async() => {
+                const message = [
+                    "3GDCC6~P1\u001b{q@v!yP3TZJ\u0005g\u001e-pQ\u001d!hU.Ao5\u0006h/HSGk20\u0018Nbdk\t\u0012+\rB\u0003%nZ\u000fh'>\u0002Is\u00013<R(!G\u0001\u0019\u0000IUm\u001c]A&tuxn\u000e!-b\u0001D,K\u0016PDt\u0015B\u0004Kun6(2T//F\u0018\fnS\u0014\u0003VLIhJdgH\u001f!L9\u0011HP\u0017\u0011,\u0012#$Z\u0011\u001dXNO*l6|l.r]Md'7Tja>\u0007P\t\u0013*U<FF@=zdi<J&DR[k cC\u0018W9\u0005L-\u0017\u0006x/nah58B\u0011\u0006\tp,#\u0002\u0016WD3|\u000fD\b3h\u0010\u0001oqJ@e -&\u0002o\n" + "*!\tPOXS\u0007X\u0007I\t/iPM*;ND/",
+                    "22004846",
+                    { "data is a string": "a string" }
+                ];
+                let onCallbackCalled = false;
+                let onReplyCalled = false;
+                comm.msgsInFlight[message[0]] = {
+                    onCallback: function() {
+                        onCallbackCalled = true;
+                        return false;
+                    },
+                    lastActivity: Date.now(),
+                    timeout: 0
+                };
+                assert(comm.msgsInFlight[message[0]]);
+                await comm._routeMessage(message);
+                assert(!comm.msgsInFlight[message[0]]);
+                done();
+            });
+        });
+
+        test("msgInFlight exists: onReply and onCallback are set", (done) => {
+            assert.doesNotThrow(async() => {
+                const message = [
+                    "3GDCC6~P1\u001b{q@v!yP3TZJ\u0005g\u001e-pQ\u001d!hU.Ao5\u0006h/HSGk20\u0018Nbdk\t\u0012+\rB\u0003%nZ\u000fh'>\u0002Is\u00013<R(!G\u0001\u0019\u0000IUm\u001c]A&tuxn\u000e!-b\u0001D,K\u0016PDt\u0015B\u0004Kun6(2T//F\u0018\fnS\u0014\u0003VLIhJdgH\u001f!L9\u0011HP\u0017\u0011,\u0012#$Z\u0011\u001dXNO*l6|l.r]Md'7Tja>\u0007P\t\u0013*U<FF@=zdi<J&DR[k cC\u0018W9\u0005L-\u0017\u0006x/nah58B\u0011\u0006\tp,#\u0002\u0016WD3|\u000fD\b3h\u0010\u0001oqJ@e -&\u0002o\n" + "*!\tPOXS\u0007X\u0007I\t/iPM*;ND/",
+                    "22004846",
+                    { "data is a string": "a string" }
+                ];
+                let onCallbackCalled = false;
+                let onReplyCalled = false;
+                comm.msgsInFlight[message[0]] = {
+                    onCallback: function() {
+                        onCallbackCalled = true;
+                    },
+                    onReply: function() {
+                        onReplyCalled = true;
+                    },
+                    lastActivity: Date.now(),
+                    timeout: 0
+                };
+                assert(comm.msgsInFlight[message[0]].onReply);
+                await comm._routeMessage(message);
+                assert(!comm.msgsInFlight[message[0]].onReply);
+                done();
+            });
+        });
+    });
+
     describe("_incBusy", () => {
         let comm;
         let socket1;
@@ -1963,6 +2164,45 @@ describe("MessageComm", () => {
                 assert(comm.busyCount.hasOwnProperty(action));
                 assert(comm.busyCount[action].count == 0);
                 assert(comm.busyCount[action].max == 3);
+            });
+        });
+    });
+
+    describe("setEncrypt", () => {
+        let comm;
+        let socket1;
+        let keyPair1;
+        let keyPair2;
+        beforeEach(() => {
+            [socket1, _] = CreatePair();
+            assert.doesNotThrow(() => { comm = new MessageComm(socket1); });
+            keyPair1 = nacl.box.keyPair();
+            keyPair2 = nacl.box.keyPair();
+        });
+
+        test("already called", () => {
+            assert.doesNotThrow(() => {
+                comm.setEncrypt(keyPair1, keyPair2.publicKey);
+            });
+            assert.throws(() => comm.setEncrypt(keyPair1, keyPair2.publicKey), /MessageComm can only be set to encryption mode once, and it cannot be changed./);
+        });
+
+        test("encrypt object is set", () => {
+            assert.doesNotThrow(() => {
+                comm.setEncrypt(keyPair1, keyPair2.publicKey);
+                assert(comm.encrypt.keyPair == keyPair1);
+                assert(comm.encrypt.peerPublicKey == keyPair2.publicKey);
+            });
+        });
+
+        test("_onData is called", () => {
+            let called = false;
+            comm._onData = function() {
+                called = true;
+            }
+            assert.doesNotThrow(() => {
+                comm.setEncrypt(keyPair1, keyPair2.publicKey);
+                assert(called == true);
             });
         });
     });
