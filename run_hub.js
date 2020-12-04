@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const {HubServer, HubClient} = require("../pocket-messaging/Hub");
+const {HubServer, HubClient} = require("./Hub");
 
 const serverTCP = {
     listen: {
