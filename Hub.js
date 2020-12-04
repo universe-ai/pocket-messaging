@@ -11,9 +11,10 @@ const registry = [];
  * can hook up with clients connecting over Websocket.
  *
  * @param {Object[]} server
+ * @throws Error will be thrown when the server listen options are invalid.
  *
  */
-async function HubServer(servers)
+function HubServer(servers)
 {
     servers.forEach( server => {
         let serverSocket;
@@ -85,7 +86,7 @@ async function HubServer(servers)
 
 /**
  * Remove any want/offer related to the messageComm.
- *
+ * @param {MessageComm} messageComm
  */
 function unreg(messageComm)
 {
@@ -98,16 +99,32 @@ function unreg(messageComm)
     }
 }
 
+/**
+ * Push want/offer to registry
+ * @param {string} want
+ * @param {Array} offers
+ * @param {MessageComm} messageComm
+ */
 function reg(want, offers, messageComm)
 {
     registry.push( {want, offers, messageComm} );
 }
 
+/**
+ * Check message comm presence in registry
+ * @param {MessageComm} messageComm
+ * @returns {boolean} - flag indicating the state
+ */
 function isRegged(messageComm)
 {
     return getReg(messageComm) ? true : false;
 }
 
+/**
+ * Retrieve message comm from registry
+ * @param {MessageComm} messageComm
+ * @returns {Object | null} - registered entry or null when not available.
+ */
 function getReg(messageComm)
 {
     let index;
@@ -120,6 +137,11 @@ function getReg(messageComm)
     return null;
 }
 
+/**
+ * Consume match
+ * @param {MessageComm} messageComm
+ * @return {Array<Object | boolean | null>}
+ */
 function consumeMatch(messageComm)
 {
     const regged = getReg(messageComm);
@@ -172,7 +194,7 @@ function consumeMatch(messageComm)
  * When a match is found return the peer's messageComm instance.
  * If our socket disconnected then return null.
  *
- * @return {MessageComm | null} peerMessageComm
+ * @return {Array<Object | boolean | null>}
  */
 async function waitForMatch(want, offer, messageComm)
 {
@@ -188,6 +210,12 @@ async function waitForMatch(want, offer, messageComm)
 
     return [peerMessageComm, isServer];
 }
+
+/**
+ * Sleepe helper function
+ * @param {number} ms - time to sleep
+ * @return {Promise}
+ */
 
 async function sleep(ms)
 {
@@ -220,7 +248,7 @@ async function HubClient(want, offer, messageComm)
         return [isServer];
     }
     else {
-        return null
+        return null;
     }
 }
 
