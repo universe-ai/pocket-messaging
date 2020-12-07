@@ -143,8 +143,8 @@ function Busy(e)
 }
 
 /**
- * Create an instance and set a scalar, Array or Buffer value as only property.
- * This is a suger function to be used when wanting to return simple values.
+ * Create an instance and set the input value as only property.
+ * This is a sugar function to be used when wanting to return simple values.
  *
  * If an array is holding a Buffer object, it MUST be unnested as a direct element of the array,
  * it cannot be held by a sub array or by an object in the array.
