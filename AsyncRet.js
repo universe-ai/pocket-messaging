@@ -1,6 +1,33 @@
+/**
+ * Exception error type
+ * @constant
+ * @type {string}
+ * @default
+ */
 const ERROR_EXCEPTION   = "exception";
+
+/**
+ * Socket error type
+ * @constant
+ * @type {string}
+ * @default
+ */
 const ERROR_SOCKET      = "socket";
+
+/**
+ * Timeout error type
+ * @constant
+ * @type {string}
+ * @default
+ */
 const ERROR_TIMEOUT     = "timeout";
+
+/**
+ * Busy error type
+ * @constant
+ * @type {string}
+ * @default
+ */
 const ERROR_BUSY        = "busy";
 
 /**
@@ -22,8 +49,8 @@ class AsyncRet
     }
 
     /**
-     * Checks for success in communication,
-     * it does not necessarily mean the call went as expected, it means that there was no abrupt error on the way.
+     * Checks for success in communication.
+     * It does not necessarily mean the call went as expected, it means that there was no abrupt error on the way.
      *
      * @return {boolean} true if no errors are set
      */
@@ -44,6 +71,7 @@ class AsyncRet
 
     /**
      * Specifically query if there is an exception.
+     * @return {boolean} true if exception type of error.
      */
     isException()
     {
@@ -52,12 +80,17 @@ class AsyncRet
 
     /**
      * Specifically query if there is a socket error.
+     * @return {boolean} true if socket type of error.
      */
     isSocketError()
     {
         return (this.props._error || {}).type === ERROR_SOCKET;
     }
 
+    /**
+     * Query for timeout error.
+     * @return {boolean} true if timeout type of error.
+     */
     isTimeout()
     {
         return (this.props._error || {}).type === ERROR_TIMEOUT;
@@ -65,23 +98,35 @@ class AsyncRet
 
     /**
      * Get the simple value set when instantiating with Success(value).
-     *
+     * @return {string|number|boolean|Array|Buffer|null|undefined} - Success value
      */
     get()
     {
         return this.props._ret;
     }
 
+    /**
+     * Retrieve error message, if available.
+     * @return {string | undefined} - error message.
+     */
     errorMessage()
     {
         return (this.props._error || {}).msg;
     }
 
+    /**
+     * Retrieve error type, if available.
+     * @return {string | undefined} - error type.
+     */
     errorType()
     {
         return (this.props._error || {}).type;
     }
 
+    /**
+     * Retrieve object props.
+     * @return {Object} - object props.
+     */
     getProps()
     {
         const props = {};
@@ -89,6 +134,10 @@ class AsyncRet
         return props;
     }
 
+    /**
+     * Retrieve message id.
+     * @return {string} - message id.
+     */
     msgId()
     {
         return this._msgId;
@@ -97,6 +146,8 @@ class AsyncRet
 
 /**
  * Return an error struct which indicates a socket error.
+ * @param {string} e - error message.
+ * @return {AsyncRet} with "_error" property as object property.
  */
 function SocketError(e)
 {
@@ -109,6 +160,11 @@ function SocketError(e)
     return new AsyncRet(props);
 }
 
+/**
+ * Returns an exception AsyncRet error object
+ * @param {string} e - error message.
+ * @return {AsyncRet} with "_error" property as object property.
+ */
 function Exception(e)
 {
     const props = {
@@ -120,6 +176,11 @@ function Exception(e)
     return new AsyncRet(props);
 }
 
+/**
+ * Returns a Timeout AsyncRet error object
+ * @param {string} e - error message.
+ * @return {AsyncRet} with "_error" property as object property.
+ */
 function Timeout(e)
 {
     const props = {
@@ -131,6 +192,11 @@ function Timeout(e)
     return new AsyncRet(props);
 }
 
+/**
+ * Returns a Busy AsyncRet error object
+ * @param {string} e - error message.
+ * @return {AsyncRet} with "_error" property as object property.
+ */
 function Busy(e)
 {
     const props = {
@@ -190,11 +256,12 @@ function Success(value)
 /*
  * We use this to set the complete data object of this instance, which is useful for restoring an instance from another.
  *
- * FYI: If the property "_error" is set in props then the success() call will return false.
+ * FYI: If the property "_error" is set in props then the isSuccess() call will return false.
  * FYI: If the property "_ret" is set in props then the get() call will return that value.
  *
- * @param {Object | null} props object of properties
- * @param {string | null} msgId Is set on replies over socket.
+ * @param {Object} props - object of properties
+ * @param {string} msgId - set on replies over socket.
+ * @return {AsyncRet} containing either "_error" or "_ret" properties set.
  */
 function fromProps(props, msgId)
 {
@@ -204,4 +271,4 @@ function fromProps(props, msgId)
     return new AsyncRet(props || {}, msgId);
 }
 
-module.exports = {Success, Error, Exception, SocketError, fromProps, Timeout, Busy};
+module.exports = {Success, Exception, SocketError, fromProps, Timeout, Busy};
