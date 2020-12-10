@@ -3,7 +3,7 @@
  * 1. Prove each sides identity.
  * 2. Decide if there is a match of the client preference with the server's availability of
  *    supported protocols and settings.
- *    A client has a strict idea what how it wants to connect, in terms of which
+ *    A client has a strict idea how it wants to connect, in terms of which
  *    Universe Protocol to use and what rootnode ID to have as common.
  *    A server can support a number of options and this handshake process will find the first matching one.
  *
@@ -172,7 +172,9 @@ async function AsClient(messageComm, serverPubKey, keyPair, parameters, innerEnc
 }
 
 /**
- *
+ * Read random token
+ * @param {MessageComm} messageComm
+ * @returns {Promise}
  */
 function ReadRandomToken(messageComm)
 {
@@ -218,7 +220,7 @@ function ReadRandomToken(messageComm)
 
 /**
  * @param {MessageComm} messageComm should be corked.
- * @param {Object} server keyPair
+ * @param {Object} keyPair - server keyPair
  * @param {Function} ServerMatchAccept
  * @return {Array<curatedServerParams:Object, sharedParams:string, clientPubKey:string, innerEncryption:Number, encKeyPair, clientEncKey:Buffer> | null}
  *  null means handshake was not successful.
@@ -243,7 +245,7 @@ async function AsServer(messageComm, keyPair, ServerMatchAccept)
         // Let one reply through
         messageComm.uncork(1);
 
-        // We are sending pure binary here, it requries the other end to have its messageComm set to binary mode, which is has with ReadRandomToken().
+        // We are sending pure binary here, it requires the other end to have its messageComm set to binary mode, which is has with ReadRandomToken().
         const asyncRet1 = await messageComm.send([token], msgId, 10);
 
         // STEP 3
@@ -317,6 +319,8 @@ async function AsServer(messageComm, keyPair, ServerMatchAccept)
 
 /**
  * Convert ArrayBuffer to Buffer
+ * @param {ArrayBuffer} ab - input data
+ * @return {Buffer} - output data
  */
 function toBuffer(ab) {
     var buf = Buffer.alloc(ab.byteLength);
@@ -324,6 +328,12 @@ function toBuffer(ab) {
     return buf;
 }
 
+/**
+ * Symmetric decrypt buffer into a decoded string
+ * @param {ArrayBuffer} buf - buffer to be decrypted
+ * @param {string} token - the shared secret
+ * @return {string} - decoded data
+ */
 function symDecryptToString(buf, token)
 {
     return new TextDecoder("utf-8").decode(
