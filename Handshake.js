@@ -71,18 +71,7 @@ const Hash = require("../util/hash");
 const Crypt = require("../util/crypt");
 const {MessageEncoder} = require("./Message");
 const nacl = require("tweetnacl");
-
-/**
- * @typedef {Object} HandshakeClientMsgFormat
- * @property {string} serverPubKey
- */
-
-/**
- * @typedef {Object} HandshakePhase3ResponseFormat
- * @property {string} protocolType
- * @property {string} protocolVersion
- * @property {string} rootNodeId
- */
+const assert = require("assert");
 
 /**
  * @param {MessageComm} messageComm should be corked.
@@ -90,13 +79,18 @@ const nacl = require("tweetnacl");
  * @param {Object} keyPair client keypair
  * @param {string | Buffer} parameters client parameters sent to server for matching handshake preferecens
  * @param {number} innerEncryption level. 0 = auto, 1 = require
- * @return {Array<innerEncrypt, keyPair, serverEncKey> | null} null means failed handshake,
- *  innerEncrypt is the agreed upon inner encryption level, 0=no encryption, 1=use encryption
- *  keyPair and serverEncKey are session keys which can be used for transport encryption.
+ * @return {Array<string, Uint8Array, Uint8Array, Uint8Array> | null} null means failed handshake.
+ * The first entry is the shared parameters.
+ * The second entry is innerEncrypt, representing the agreed upon inner encryption level: 0=no encryption, 1=use encryption.
+ * The third and fourth entries are keyPair and serverEncKey which are session keys which can be used for transport encryption.
  */
 async function AsClient(messageComm, serverPubKey, keyPair, parameters, innerEncryption)
 {
     try {
+        if (!messageComm) {
+            throw "messageComm is invalid";
+        }
+
         const sharedKey     = Hash.generateRandomBytes(32);
 
         // STEP 2
@@ -174,10 +168,12 @@ async function AsClient(messageComm, serverPubKey, keyPair, parameters, innerEnc
 /**
  * Read random token
  * @param {MessageComm} messageComm
- * @returns {Promise}
+ * @returns {Promise<Array<string | null>>}
  */
 function ReadRandomToken(messageComm)
 {
+    assert(messageComm);
+
     let token = Buffer.alloc(0);
 
     return new Promise( resolve => {
@@ -222,7 +218,7 @@ function ReadRandomToken(messageComm)
  * @param {MessageComm} messageComm should be corked.
  * @param {Object} keyPair - server keyPair
  * @param {Function} ServerMatchAccept
- * @return {Array<curatedServerParams:Object, sharedParams:string, clientPubKey:string, innerEncryption:Number, encKeyPair, clientEncKey:Buffer> | null}
+ * @return {Array<curatedServerParams:Object, sharedParams:string, clientPubKey:string, innerEncryption:Number, encKeyPair:Uint8Array, clientEncKey:Buffer> | null}
  *  null means handshake was not successful.
  *  curatedServerParams is the accepted curated params object from the servers accept params array.
  *  sharedParams is a string passed to client, passed here for reference
@@ -233,6 +229,10 @@ function ReadRandomToken(messageComm)
 async function AsServer(messageComm, keyPair, ServerMatchAccept)
 {
     try {
+        if (!messageComm) {
+            throw "messageComm is invalid";
+        }
+
         // STEP 1
         //
         // Generate random handshake token.
