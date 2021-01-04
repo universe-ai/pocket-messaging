@@ -73,9 +73,9 @@ async function main(messageCommC, messageCommS, serverKeyMismatch=false)
         keyPair: clientKey,
         innerEncrypt: 0,
         params: {
-            class: {
-                getVersion: function() { return "1.1.1"; },
-                getType: function() { return "Chat"; },
+            protocol: {
+                version: "1.1.1",
+                type: "u.protocols.gingerbread",
             },
             rootNodeId: "hello1"
         }
@@ -90,10 +90,9 @@ async function main(messageCommC, messageCommS, serverKeyMismatch=false)
                 innerEncrypt: 0,
                 params: [
                     {
-                        class: {
-                            getVersion: function() { return "1.1.1"; },
-                            getType: function() { return "Chat"; },
-                            isMatch: function(type) { return "Chat" === type; },
+                        protocol: {
+                            version: "1.1.1",
+                            type: "u.protocols.gingerbread",
                         },
                         rootNodeId: "hello1",
                         // depths>0 still untested here, it requires a working storage with data inside of it.
