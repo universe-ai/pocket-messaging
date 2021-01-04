@@ -378,7 +378,8 @@ class AbstractAgent
      * @param {Object} serverParams accept block params object
      * @param {string} clientPubKey verified in handshake already
      * @return {Array<Object, String>}
-     *  0: curatedServerParams which matches serializedClientParams, where rootNodeId can *  be different that what the server had set, depending on the logic.
+     *  0: curatedServerParams which matches serializedClientParams, where rootNodeId can
+     *     be different that what the server had set, depending on the logic.
      *  1: sharedParams
      */
     static async MatchParams(serializedClientParams, serverParams, clientPubKey)
@@ -416,12 +417,12 @@ class AbstractAgent
      *
      * @param {KeyPair} local keypair
      * @param {string} remotePubKey
-     * @param {Object} serverParams server.accept.params object
+     * @param {Object} curatedServerParams curated server.accept.params object
      * @param {string} sharedParams created by Server and passed to Client. Put here for reference.
      * @param {MessageComm} messageComm
      *
      */
-    async _serverConnected(localKeyPair, remotePubKey, serverParams, sharedParams, messageComm)
+    async _serverConnected(localKeyPair, remotePubKey, curatedServerParams, sharedParams, messageComm)
     {
         throw "Not implemented.";
     }
