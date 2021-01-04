@@ -3,9 +3,34 @@
 const MessageComm = require("../MessageComm");
 const Handshake = require("../Handshake");
 const CreatePair = require("../../pocket-sockets/VirtualClient");
-const Agent = require("../../protocol/Agent");
 const AsyncRet = require("../AsyncRet");
+const AbstractAgent = require("../AbstractAgent");
 const assert = require("assert");
+
+class Agent extends AbstractAgent
+{
+    static SerializeClientParams(clientParams)
+    {
+        return JSON.stringify(clientParams);
+    }
+
+    static async MatchParams(serializedClientParams, serverParams, clientPubKey)
+    {
+        const rootNodeId    = null;
+        const protocol      = null;
+        const config        = {};
+
+        return [
+            {
+                rootNodeId:     rootNodeId,
+                protocol:       serverParams.protocol,
+                config:         serverParams.config,
+                storageFactory: null,
+            },
+            JSON.stringify({rootNodeId: rootNodeId}),
+        ];
+    }
+}
 
 function createComms()
 {

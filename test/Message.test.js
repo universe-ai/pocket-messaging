@@ -261,7 +261,7 @@ describe("MessageEncoder", () => {
         });
 
         test("Data is undefined", () => {
-            assert.throws(() => RANDOM_MESSAGE.add("data is undefined", undefined), /Could not add object of type undefined, only fundamental data types allowed./);
+            assert.throws(() => RANDOM_MESSAGE.add("data is undefined", undefined), /Could not add object of type undefined for key "data is undefined", only fundamental data types allowed./);
         });
 
         test("Data is unsupported Array", () => {
@@ -269,7 +269,7 @@ describe("MessageEncoder", () => {
         });
 
         test("Data is function", () => {
-            assert.throws(() => RANDOM_MESSAGE.add("data is function", function(){}), /Could not add object of type function, only fundamental data types allowed./);
+            assert.throws(() => RANDOM_MESSAGE.add("data is function", function(){}), /Could not add object of type function for key "data is function", only fundamental data types allowed./);
         });
 
         test("Data is null", () => {
@@ -623,7 +623,7 @@ describe("MessageEncoder", () => {
         });
 
         test("Props is undefined", () => {
-            assert.throws(() => RANDOM_MESSAGE.addProps({"name": undefined}), /Could not add object of type undefined, only fundamental data types allowed./);
+            assert.throws(() => RANDOM_MESSAGE.addProps({"name": undefined}), /Could not add object of type undefined for key "name", only fundamental data types allowed./);
             assert(RANDOM_MESSAGE.buffers.length == 0);
         });
 

@@ -1906,9 +1906,14 @@ describe("MessageComm", () => {
                 ];
                 let onCallbackCalled = false;
                 let onReplyCalled = false;
+                let resolve;
+                const promise = new Promise( r => {
+                    resolve = r;
+                });
                 comm.msgsInFlight[message[0]] = {
                     onCallback: function() {
                         onCallbackCalled = true;
+                        resolve();
                         return false;
                     },
                     lastActivity: Date.now(),
@@ -1916,6 +1921,7 @@ describe("MessageComm", () => {
                 };
                 assert(comm.msgsInFlight[message[0]]);
                 await comm._routeMessage(message);
+                await promise;
                 assert(!comm.msgsInFlight[message[0]]);
                 done();
             });
@@ -1930,9 +1936,14 @@ describe("MessageComm", () => {
                 ];
                 let onCallbackCalled = false;
                 let onReplyCalled = false;
+                let resolve;
+                const promise = new Promise( r => {
+                    resolve = r;
+                });
                 comm.msgsInFlight[message[0]] = {
                     onCallback: function() {
                         onCallbackCalled = true;
+                        resolve();
                         return false;
                     },
                     lastActivity: Date.now(),
@@ -1940,6 +1951,7 @@ describe("MessageComm", () => {
                 };
                 assert(comm.msgsInFlight[message[0]]);
                 await comm._routeMessage(message);
+                await promise;
                 assert(!comm.msgsInFlight[message[0]]);
                 done();
             });
