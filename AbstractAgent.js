@@ -1,17 +1,77 @@
 /**
- * An Agent is responsible for initiating connections to peers and for listening
- * on connections from peers.
+ * The Agent is responsible for:
+ * -    setting up server sockets and instantiating client sockets.
+ *      Upon connections handshake the connection, both cryptographically
+ *      and also to match desired parameters for matching the two peers.
  *
- * The Agent will handshake the connections and call for spawning of protocol instances,
- * but which functions must be implemented in the derived class.
+ * -    Spawning a Protocol instance with the agreed upon configuration and a storage client.
+ *
+ * When a server or client socket connects it is wrapped inside a MessageComm which is corked.
+ * The Handshake class is invoked either as Handshake.AsServer or Handshake.AsClient.
+ *
+ * A server socket upon connection does:
+ * matchFn = (clientPubKey, serializedClientParams, clientInnerEncrypt) =>
+ *  this.constructor.ServerMatchAccept(clientPubKey, serializedClientParams, server.accept, clientInnerEncrypt)
+ *  All three arguments to matchFn comes from the client configurations sent over socket, where:
+ *      clientPubKey = client.keyPair.pub,
+ *      serializedClientParams = this.SerializeClientParams(client.params);
+ *      clientInnerEncrypt = client.innerEncrypt
+ *  These arguments are passed on to the ServerMatchAccept function together with the server.accept array,
+ *  which will match the provided client parameters with all defined in the server.accept block
+ *  and return the first match.
+ *
+ * match = Handshake.AsServer(messageComm, server.keyPair, matchFn);
+ * [curatedServerParams, sharedParams, clientPubKey, innerEncrypt, encKeyPair, encPeerPublicKey] = match
+ * If innerEncrypt==1 then the messageComm will be put into encrypted mode with the encKeyPair+encPeerPublicKey.
+ * Inside ServerMatchAccept every server.accept block is iterated and matched for clientPubKey,
+ * each match's params block is then matched as serverParams using MatchParams, as:
+ *  [curatedServerParams, sharedParams] = MatchParams(serializedClientParams, serverParams, clientPubKey)
+ * curatedServerParams is what the impl specific fn MatchParams returns extracted from the ServerParams (and possibly more).
+ * sharedParams is what the impl spec fn MatchParams returns as negotiated parameters both for client and server. This has been sent to the client in the handshake.
+ *
+ * Finally the impl specific _serverConnected is called with
+ *  (server.keyPair, clientPubKey, curatedServerParams, sharedParams, messageComm)
+ * This impl specific function should instantiate a protocol with the given parameters, which will be
+ * connected to its peer protocol via the messageComm.
+ * 
+ *
+ * A client socket upon connection is simpler than it's server counterpart, it has a direct intent
+ * of connecting to a specific server (client.serverPubKey) using specific params (client.params)
+ * which are passed to the server.
+ *
+ * serializedClientParams = this.SerializeClientParams(client.params);
+ * match = Handshake.AsClient(messageComm, client.serverPubKey, client.keyPair, serializedClientParams, client.innerEncrypt)
+ * [sharedParams, innerEncrypt, encKeyPair, encPeerPublicKey] = match
+ * sharedParams is the negotiated params sent to us from server.
+ * innerEncrypt==1 if inner encryption was desired from either side.
+ *  in such case encKeyPair and encPeerPublicKey are passed to the messageComm.
+ *
+ * Finally the impl specific _clientConnected fn is called with
+ *  (client.keyPair, client.serverPubKey, client.params, sharedParams, messageComm)
+ * This impl specific function should instantiate a protocol with the given parameters, which will be
+ * connected to its peer protocol via the messageComm.
+ *
+ * If a client is configured to connect via a hub it might get instructed by the hub server
+ * to act as the server in the peer to peer setup, it will then transform its client parameters
+ * into a server params format using the impl specific fn ClientParamsIntoServer(client.params)
+ * and it will handshake as a server does (described above).
+ * It will however after a successful handshake still invoke the _clientConnected fn (not _serverConnected).
+ *
+ * The following functions has to be implemented in a derived class:
+ * SerializeClientParams
+ * ClientParamsIntoServer
+ * MatchParams
+ * GetType
+ * _clientConnected
+ * _serverConnected
  *
  */
 
-//
-// Only include these tree on request since they cannot be used within the browser.
+/* Only include these three socket handlers when requested since they cannot be used within the browser */
 let WSServer;
 let TCPClient;
 let TCPServer;
+
 const WSClient = require("../pocket-sockets/WSClient");
 const Handshake = require("./Handshake");
 const MessageComm = require("./MessageComm");
@@ -46,7 +106,7 @@ class AbstractAgent
          * config = {
          *  servers: [
          *      // pub, priv keys of the server, ed25519.
-         *      keyPair: {},
+         *      keyPair: {pub: "", priv: ""}
          *
          *      // Listener socket
          *      listen: {
@@ -92,7 +152,7 @@ class AbstractAgent
          *  clients: [
          *      {
          *          // The client pub, priv keypair, ed25519.
-         *          keyPair: {}
+         *          keyPair: {pub: "", priv: ""}
          *
          *          // Optional arbitrary name, used for onConnected events
          *          name: <string | undefined>
