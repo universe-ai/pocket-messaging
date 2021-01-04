@@ -279,7 +279,7 @@ class MessageEncoder
             this.addObject(key, any);
         }
         else {
-            throw `Could not add object of type ${typeOfAny}, only fundamental data types allowed.`;
+            throw `Could not add object of type ${typeOfAny} for key "${key}", only fundamental data types allowed.`;
         }
     }
 
