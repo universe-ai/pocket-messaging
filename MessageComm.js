@@ -686,12 +686,18 @@ class MessageComm
                     onReply(asyncRet);
                 }
                 else if(onCallback) {
-                    const ret = await onCallback(asyncRet);
-                    // If a callback function return exactly false (not null nor undefined)
-                    // then that signals that no further replies should be routed.
-                    if (ret === false) {
-                        this.clearPendingMessage(actionOrReplyMsgId);
-                    }
+                    // We have to put this within a promise and resolve it, to guarantee it is always run after onReply (which is a promise resolved).
+                    const promiseToResolverAfterOnReply = new Promise( resolve => {
+                        resolve();
+                    });
+                    promiseToResolverAfterOnReply.then( async () => {
+                        const ret = await onCallback(asyncRet);
+                        // If a callback function return exactly false (not null nor undefined)
+                        // then that signals that no further replies should be routed.
+                        if (ret === false) {
+                            this.clearPendingMessage(actionOrReplyMsgId);
+                        }
+                    });
                 }
             }
             else {
