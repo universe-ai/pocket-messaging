@@ -97,6 +97,15 @@ class AsyncRet
     }
 
     /**
+     * Query for busy error.
+     * @return {boolean} true if busy type of error.
+     */
+    isBusy()
+    {
+        return (this.props._error || {}).type === ERROR_BUSY;
+    }
+
+    /**
      * Get the simple value set when instantiating with Success(value).
      * @return {string|number|boolean|Array|Buffer|null|undefined} - Success value
      */
