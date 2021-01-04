@@ -387,6 +387,17 @@ class AbstractAgent
     }
 
     /**
+     * Return the client protocol type.
+     * This is impl specific.
+     * @param {Object} client config object
+     * @return {string} 
+     */
+    static GetType(client)
+    {
+        throw "Not implemented.";
+    }
+
+    /**
      *
      * @param {KeyPair} local keypair
      * @param {string} remotePubKey
@@ -656,8 +667,8 @@ class AbstractAgent
                         let handshakeSuccessful = false;
                         let sharedParams, innerEncrypt, encKeyPair, encPeerPublicKey;
                         if (client.connect.hub && typeof client.connect.hub === "object") {
-                            const want  = Hash.hash2([client.params.class.getType(), client.serverPubKey, client.connect.hub.sharedSecret || ""], "hex");
-                            const offer = Hash.hash2([client.params.class.getType(), client.keyPair.pub, client.connect.hub.sharedSecret || ""], "hex");
+                            const want  = Hash.hash2([this.constructor.GetType(client), client.serverPubKey, client.connect.hub.sharedSecret || ""], "hex");
+                            const offer = Hash.hash2([this.constructor.GetType(client), client.keyPair.pub, client.connect.hub.sharedSecret || ""], "hex");
                             const result = await HubClient(want, [offer], messageComm);
                             if (result) {
                                 const [isServer] = result;
@@ -705,9 +716,9 @@ class AbstractAgent
                         if (handshakeAsClient) {
                             // Perform client handshake.
                             innerEncryption     = client.innerEncrypt ? client.innerEncrypt : 0;
-                            const parameters        = this.constructor.SerializeClientParams(client.params);
+                            const parameters    = this.constructor.SerializeClientParams(client.params);
                             messageComm.cork();
-                            const result            = await Handshake.AsClient(messageComm, client.serverPubKey, client.keyPair, parameters, innerEncryption);
+                            const result        = await Handshake.AsClient(messageComm, client.serverPubKey, client.keyPair, parameters, innerEncryption);
                             if (result) {
                                 [sharedParams, innerEncrypt, encKeyPair, encPeerPublicKey] = result;
                                 handshakeSuccessful = true;
