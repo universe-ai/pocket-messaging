@@ -709,14 +709,16 @@ class MessageComm
                         await this.routeMessage(actionOrReplyMsgId, incomingMsgId, props);
                     }
                     catch(e) {
-                        this.logger.error("Error routing message:", e);
+                        const err = typeof e === "object" ? e.stack || e.message || e : e;
+                        this.logger.error("Error routing message:", err);
                     }
                     this._decBusy(actionOrReplyMsgId);
                 }
             }
         }
         catch(e) {
-            this.logger.error("Error routing message:", e);
+            const err = typeof e === "object" ? e.stack || e.message || e : e;
+            this.logger.error("Error routing message:", err);
         }
     }
 
