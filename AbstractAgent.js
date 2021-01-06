@@ -89,7 +89,103 @@ class AbstractAgent
 {
     /**
      * @constructor
-     * @param {AgentConfigFormat} config
+     * @param {AgentConfigFormat} config:
+     *  This is the basic structures of server/client configurations.
+     *  A deriving class should add impl specific "params" to the configs (see below).
+     *
+     *  config = {
+     *   servers: [
+     *       // pub, priv keys of the server, ed25519.
+     *       keyPair: {pub: "", priv: ""}
+     *
+     *       // Listener socket
+     *       listen: {
+     *          protocol: "tcp" | "websocket",
+     *          host: "localhost",
+     *          port: 8080,
+     *          cert: // see AbstractServer for details
+     *          key:  ^
+     *       },
+     *
+     *       // Accept blocks for handshaking a newly connected client socket.
+     *       // This base class verifies keys, the derived class will need to add
+     *       // protocol specific parameters to match, if any.
+     *       accept: [
+     *           {
+     *               // Client public key received in handshake will be matched using
+     *               // this clientPubKey value.
+     *               // If a match is made then we proceed to matching client protocol
+     *               // preferences to the protocols defined below.
+     *               clientPubKey: <string | string[] | async Function(clientPubKey):boolean>,
+     *
+     *               // Optional arbitrary name, used for onConnected events
+     *               name: <string | undefined>
+     *
+     *               // Have the MessageComm perform encryption on data sent.
+     *               // This is useful when regular TLS is not available, or when TLS termination
+     *               // is done by a non-trusted part of the network.
+     *               // 0=don't require, 1=require message encryption,
+     *               // The reason is is a number and not a boolean is for possible added
+     *               // flexibility in the future with more options than on/off.
+     *               innerEncrypt: <number | null | undefined>,
+     *
+     *               params: [
+     *                   {
+     *                       <impl specific details here.
+     *                        these will be matched against the client params.>
+     *                   },
+     *               ],
+     *           },
+     *       ]
+     *   ],
+     *
+     *   clients: [
+     *       {
+     *           // The client pub, priv keypair, ed25519.
+     *           keyPair: {pub: "", priv: ""}
+     *
+     *           // Optional arbitrary name, used for onConnected events
+     *           name: <string | undefined>
+     *
+     *           // The ed25519 pub key of the server we are expecting to answer.
+     *           serverPubKey: "",
+     *
+     *           // Have the MessageComm perform encryption on data sent.
+     *           // This is useful when regular TLS is not available, or when TLS termination
+     *           // is done by a non-trusted part of the network, or when connecting via a non-trusted hub.
+     *           // 0=don't require, 1=require message encryption,
+     *           // The reason is is a number and not a boolean is for possible added
+     *           // flexibility in the future with more options than on/off.
+     *           innerEncrypt: <number | null | undefined>,
+     *
+     *           connect: {
+     *               // See AbstractClient for details.
+     *               cert:
+     *               key:
+     *               protocol: "tcp" | "websocket",
+     *               host: "localhost",
+     *               port: 8080,
+     *               reconnect: <boolean | null | undefined>,
+     *
+     *               // If present then connect as via a hub.
+     *               // <Object | null>
+     *               hub: {
+     *                   // Optional shared secret between peers for cloaked matching.
+     *                   // When connecting via a hub the peers match via the hash of (protocolType, peerPubKey, sharedSecret).
+     *                   // If a third party is aware of a peer public key and the protocol is is connecting with and which hub it is connecting via,
+     *                   // it could interfere with the connection by posing as one of the peers which will result in peer's not finding each other as they should.
+     *                   // An interferer could not connect as a peer, only interfere with peer's successfully connecting to each other.
+     *                   // The sharedSecret can be used to mitigate such annoyances.
+     *                   sharedSecret: <string | null>
+     *               }
+     *           },
+     *
+     *           params: {
+     *               <impl specific params here, these will be matched against
+     *                the servers accept blocks>
+     *           }
+     *       }
+     *   ]
      */
     constructor(config)
     {
@@ -100,104 +196,6 @@ class AbstractAgent
             throw "Invalid config";
         }
 
-        /**
-         * This is the basic structures of server/client configurations.
-         * A deriving class should add impl specific "params" to the configs (see below).
-         *
-         * config = {
-         *  servers: [
-         *      // pub, priv keys of the server, ed25519.
-         *      keyPair: {pub: "", priv: ""}
-         *
-         *      // Listener socket
-         *      listen: {
-         *         protocol: "tcp" | "websocket",
-         *         host: "localhost",
-         *         port: 8080,
-         *         cert: // see AbstractServer for details
-         *         key:  ^
-         *      },
-         *
-         *      // Accept blocks for handshaking a newly connected client socket.
-         *      // This base class verifies keys, the derived class will need to add
-         *      // protocol specific parameters to match, if any.
-         *      accept: [
-         *          {
-         *              // Client public key received in handshake will be matched using
-         *              // this clientPubKey value.
-         *              // If a match is made then we proceed to matching client protocol
-         *              // preferences to the protocols defined below.
-         *              clientPubKey: <string | string[] | async Function(clientPubKey):boolean>,
-         *
-         *              // Optional arbitrary name, used for onConnected events
-         *              name: <string | undefined>
-         *
-         *              // Have the MessageComm perform encryption on data sent.
-         *              // This is useful when regular TLS is not available, or when TLS termination
-         *              // is done by a non-trusted part of the network.
-         *              // 0=don't require, 1=require message encryption,
-         *              // The reason is is a number and not a boolean is for possible added
-         *              // flexibility in the future with more options than on/off.
-         *              innerEncrypt: <number | null | undefined>,
-         *
-         *              params: [
-         *                  {
-         *                      <impl specific details here.
-         *                       these will be matched against the client params.>
-         *                  },
-         *              ],
-         *          },
-         *      ]
-         *  ],
-         *
-         *  clients: [
-         *      {
-         *          // The client pub, priv keypair, ed25519.
-         *          keyPair: {pub: "", priv: ""}
-         *
-         *          // Optional arbitrary name, used for onConnected events
-         *          name: <string | undefined>
-         *
-         *          // The ed25519 pub key of the server we are expecting to answer.
-         *          serverPubKey: "",
-         *
-         *          // Have the MessageComm perform encryption on data sent.
-         *          // This is useful when regular TLS is not available, or when TLS termination
-         *          // is done by a non-trusted part of the network, or when connecting via a non-trusted hub.
-         *          // 0=don't require, 1=require message encryption,
-         *          // The reason is is a number and not a boolean is for possible added
-         *          // flexibility in the future with more options than on/off.
-         *          innerEncrypt: <number | null | undefined>,
-         *
-         *          connect: {
-         *              // See AbstractClient for details.
-         *              cert:
-         *              key:
-         *              protocol: "tcp" | "websocket",
-         *              host: "localhost",
-         *              port: 8080,
-         *              reconnect: <boolean | null | undefined>,
-         *
-         *              // If present then connect as via a hub.
-         *              // <Object | null>
-         *              hub: {
-         *                  // Optional shared secret between peers for cloaked matching.
-         *                  // When connecting via a hub the peers match via the hash of (protocolType, peerPubKey, sharedSecret).
-         *                  // If a third party is aware of a peer public key and the protocol is is connecting with and which hub it is connecting via,
-         *                  // it could interfere with the connection by posing as one of the peers which will result in peer's not finding each other as they should.
-         *                  // An interferer could not connect as a peer, only interfere with peer's successfully connecting to each other.
-         *                  // The sharedSecret can be used to mitigate such annoyances.
-         *                  sharedSecret: <string | null>
-         *              }
-         *          },
-         *
-         *          params: {
-         *              <impl specific params here, these will be matched against
-         *               the servers accept blocks>
-         *          }
-         *      }
-         *  ]
-         */
         this.config = config;
 
         const instanceId = Hash.generateRandomHex(4);
