@@ -77,6 +77,7 @@ const Handshake = require("./Handshake");
 const MessageComm = require("./MessageComm");
 const Hash = require("../util/hash");
 const {HubClient} = require("./Hub");
+const Logger = require("../logger/Logger");
 
 /**
  * @typedef {Object} KeyPair
@@ -199,6 +200,10 @@ class AbstractAgent
          */
         this.config = config;
 
+        const instanceId = Hash.generateRandomHex(4);
+        const loggerId = `${(this).constructor.name}:${instanceId}`;
+        this.logger = Logger(loggerId, ( (process ? process.env : window) || {} ).LOG_LEVEL );
+
         let includeTCPServer    = false;
         let includeWSServer     = false;
         let includeTCPClient    = false;
@@ -246,7 +251,7 @@ class AbstractAgent
                 // server.accept.params will be validated by the impl deriving this class.
             }
             catch(e) {
-                console.error("Server config invalid, ignoring it:", e);
+                this.logger.error("Server config invalid, ignoring it:", e);
                 return false;
             }
 
@@ -289,7 +294,7 @@ class AbstractAgent
                 // client.params will be validated by the impl deriving this class.
             }
             catch(e) {
-                console.error("Client config invalid, ignoring it:", e);
+                this.logger.error("Client config invalid, ignoring it:", e);
                 return false;
             }
 
@@ -536,7 +541,7 @@ class AbstractAgent
             }
         }
         catch(e) {
-            console.error("Could not match parameters in Agent.");
+            this.logger.error("Could not match parameters in Agent.");
             return null;
         }
 
@@ -557,16 +562,16 @@ class AbstractAgent
                 serverSocket = new WSServer(server.listen);
             }
             else {
-                console.error("Invalid server config, ignoring one listener.");
+                this.logger.error("Invalid server config, ignoring one listener.");
                 return;
             }
 
-            console.error(`Listening on ${server.listen.protocol}://${server.listen.host || "localhost"}:${server.listen.port}. Secure: ${server.listen.cert != null}`);
+            this.logger.error(`Listening on ${server.listen.protocol}://${server.listen.host || "localhost"}:${server.listen.port}. Secure: ${server.listen.cert != null}`);
 
             this.serverSockets.push(serverSocket);
 
             serverSocket.onConnection( async (serverClientSocket) => {
-                console.error("Peer connected on", server.listen.port);
+                this.logger.error("Peer connected on", server.listen.port);
                 const messageComm = new MessageComm(serverClientSocket);
                 // Limit the size of transfer before disconnect to reduce DOS attack vector.
                 messageComm.setBufferSize(2048);
@@ -579,7 +584,7 @@ class AbstractAgent
                     const [curatedServerParams, sharedParams, clientPubKey, innerEncrypt, encKeyPair, encPeerPublicKey] = result;
                     if (innerEncrypt > 0) {
                         messageComm.setEncrypt(encKeyPair, encPeerPublicKey);
-                        console.error("MessageComm encrypted.");
+                        this.logger.error("MessageComm encrypted.");
                     }
 
                     messageComm.setBufferSize();  // Set back to default limit.
@@ -588,7 +593,7 @@ class AbstractAgent
                         clientPubKey, curatedServerParams, sharedParams, messageComm);
                 }
                 else {
-                    console.error("Could not handshake accepted socket, disconnecting.");
+                    this.logger.error("Could not handshake accepted socket, disconnecting.");
                     serverClientSocket.disconnect();
                 }
             });
@@ -597,7 +602,7 @@ class AbstractAgent
                 serverSocket.listen();
             }
             catch(e) {
-                console.error("Error when initiating listener for server: ", e);
+                this.logger.error("Error when initiating listener for server: ", e);
                 return;
             }
         });
@@ -628,11 +633,11 @@ class AbstractAgent
                     clientSocket = new WSClient(client.connect);
                 }
                 else {
-                    console.error("Invalid server config.");
+                    this.logger.error("Invalid server config.");
                     return;
                 }
 
-                console.error(`Connecting to ${client.connect.protocol}://${client.connect.host || "localhost"}:${client.connect.port}`);
+                this.logger.error(`Connecting to ${client.connect.protocol}://${client.connect.host || "localhost"}:${client.connect.port}`);
 
                 this.clientSockets.push(clientSocket);
 
@@ -730,7 +735,7 @@ class AbstractAgent
                             messageComm.setBufferSize();  // Set back to default limit.
                             if (innerEncrypt > 0 || innerEncryption > 0) {
                                 messageComm.setEncrypt(encKeyPair, encPeerPublicKey);
-                                console.error("MessageComm encrypted.");
+                                this.logger.error("MessageComm encrypted.");
                             }
 
                             this._clientConnected(client.keyPair,
@@ -741,7 +746,7 @@ class AbstractAgent
                         }
                     }
                     catch (e) {
-                        console.error(e);
+                        this.logger.error(e);
                         clientSocket.disconnect();
                         this._connectFailure(client.name, e);
                     }
