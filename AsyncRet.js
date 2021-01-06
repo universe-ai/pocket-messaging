@@ -259,6 +259,10 @@ function Success(value)
         throw "Could not set Success value, objects not allowed as value.";
     }
 
+
+    if (value === undefined) {
+        return new AsyncRet({});
+    }
     return new AsyncRet({_ret: value});
 }
 
