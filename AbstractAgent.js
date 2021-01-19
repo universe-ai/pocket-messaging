@@ -159,13 +159,17 @@ class AbstractAgent
      *           innerEncrypt: <number | null | undefined>,
      *
      *           connect: {
-     *               // See AbstractClient for details.
-     *               cert:
-     *               key:
-     *               protocol: "tcp" | "websocket",
-     *               host: "localhost",
-     *               port: 8080,
+     *               protocol: <string>,  // "tcp" or "websocket"
      *               reconnect: <boolean | null | undefined>,
+     *
+     *               // See AbstractClient connectOptions for details.
+     *               host: <string | null>, RFC6066 states that this should not be an IP address, but a name when using TLS)
+     *               port: <number>,
+     *               secure: <boolean | null> (defualt false, set to true to make a secure connection)
+     *               rejectUnauthorized: <boolean | null> (default true),
+     *               cert: <Array | string | Buffer | null>, (client can identify with cert)
+     *               key: <Array | string | Buffer | null>, (required if cert is set)
+     *               ca: <Array | string | Buffer | null>, (set this to validate server self-signed certificate)
      *
      *               // If present then connect as via a hub.
      *               // <Object | null>
