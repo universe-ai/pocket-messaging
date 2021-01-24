@@ -218,9 +218,9 @@ class MessageComm
             });
         }
         catch(e) {
-            // We force a disconnect if sending fails.
+            // We force a disconnect if sending fails (if not already closed).
             // The disconnect will resolve any promises with a SocketError
-            this.logger.error("Error writing on socket, disconnecting socket.");
+            this.logger.debug("Error writing on socket, disconnecting socket.");
             this.socket.disconnect();
             return AsyncRet.SocketError("Failed to send, disconnecting");
         }

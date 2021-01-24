@@ -118,7 +118,7 @@ class AbstractAgent
      *               // preferences to the protocols defined below.
      *               clientPubKey: <string | string[] | async Function(clientPubKey):boolean>,
      *
-     *               // Optional arbitrary name, used for onConnected events
+     *               // Optional arbitrary name, used for onConnect events
      *               name: <string | undefined>
      *
      *               // Have the MessageComm perform encryption on data sent.
@@ -144,7 +144,7 @@ class AbstractAgent
      *           // The client pub, priv keypair, ed25519.
      *           keyPair: {pub: "", priv: ""}
      *
-     *           // Optional arbitrary name, used for onConnected events
+     *           // Optional arbitrary name, used for onConnect events
      *           name: <string | undefined>
      *
      *           // The ed25519 pub key of the server we are expecting to answer.
@@ -440,7 +440,7 @@ class AbstractAgent
      * @param {Function} fn
      * @param {string | undefined} name optinal name to filter for, default is all ("*").
      */
-    onConnected(fn, name)
+    onConnect(fn, name)
     {
         name = name || "*";
         const a = this.onConnectedEvents[name] || [];
@@ -454,7 +454,7 @@ class AbstractAgent
      * @param {Function} fn
      * @param {string} name
      */
-    onConnectFailure(fn, name)
+    onError(fn, name)
     {
         name = name || "*";
         const a = this.onConnectFailureEvents[name] || [];
@@ -568,12 +568,12 @@ class AbstractAgent
                 return;
             }
 
-            this.logger.error(`Listening on ${server.listen.protocol}://${server.listen.host || "localhost"}:${server.listen.port}. Secure: ${server.listen.cert != null}`);
+            this.logger.info(`Listening on ${server.listen.protocol}://${server.listen.host || "localhost"}:${server.listen.port}. Secure: ${server.listen.cert != null}`);
 
             this.serverSockets.push(serverSocket);
 
             serverSocket.onConnection( async (serverClientSocket) => {
-                this.logger.error("Peer connected on", server.listen.port);
+                this.logger.info(`Peer connected on port ${server.listen.port}.`);
                 const messageComm = new MessageComm(serverClientSocket);
                 // Limit the size of transfer before disconnect to reduce DOS attack vector.
                 messageComm.setBufferSize(2048);
@@ -586,7 +586,7 @@ class AbstractAgent
                     const [curatedServerParams, sharedParams, clientPubKey, innerEncrypt, encKeyPair, encPeerPublicKey] = result;
                     if (innerEncrypt > 0) {
                         messageComm.setEncrypt(encKeyPair, encPeerPublicKey);
-                        this.logger.error("MessageComm encrypted.");
+                        this.logger.info("MessageComm encrypted.");
                     }
 
                     messageComm.setBufferSize();  // Set back to default limit.
@@ -639,7 +639,7 @@ class AbstractAgent
                     return;
                 }
 
-                this.logger.error(`Connecting to ${client.connect.protocol}://${client.connect.host || "localhost"}:${client.connect.port}`);
+                this.logger.info(`Connecting to ${client.connect.protocol}://${client.connect.host || "localhost"}:${client.connect.port}`);
 
                 this.clientSockets.push(clientSocket);
 
@@ -737,7 +737,7 @@ class AbstractAgent
                             messageComm.setBufferSize();  // Set back to default limit.
                             if (innerEncrypt > 0 || innerEncryption > 0) {
                                 messageComm.setEncrypt(encKeyPair, encPeerPublicKey);
-                                this.logger.error("MessageComm encrypted.");
+                                this.logger.info("MessageComm encrypted.");
                             }
 
                             this._clientConnected(client.keyPair,
