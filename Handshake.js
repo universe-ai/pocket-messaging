@@ -72,6 +72,10 @@ const Crypt = require("../util/crypt");
 const {MessageEncoder} = require("./Message");
 const nacl = require("tweetnacl");
 const assert = require("assert");
+const Logger = require("../logger/Logger");
+
+const loggerId = `Handshake`;
+const logger = Logger(loggerId, ( (process ? process.env : window) || {} ).LOG_LEVEL );
 
 /**
  * @param {MessageComm} messageComm should be corked.
@@ -160,7 +164,7 @@ async function AsClient(messageComm, serverPubKey, keyPair, parameters, innerEnc
         return [sharedParams, agreedUponInnerEncrypt, encKeyPair, toBuffer(serverEncKey)];
     }
     catch(e) {
-        console.error(e);
+        logger.error(e);
         return null;
     }
 }
@@ -204,7 +208,7 @@ function ReadRandomToken(messageComm)
 
             }
             catch(e) {
-                console.error(e);
+                logger.error(e);
                 clearTimeout(tId);
                 messageComm.setRouter(null);
                 resolve([null, null]);
@@ -312,7 +316,7 @@ async function AsServer(messageComm, keyPair, ServerMatchAccept)
         return [curatedServerParams, sharedParams, clientPubKey, innerEncryption, encKeyPair, toBuffer(clientEncKey)];
     }
     catch(e) {
-        console.error(e);
+        logger.error(e);
         return null;
     }
 }

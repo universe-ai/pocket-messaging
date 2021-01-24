@@ -39,6 +39,8 @@ const Hash = require("../util/hash");
 // Native NodeJS dependencies
 const assert = require("assert");
 
+const Logger = require("../logger/Logger");
+
 /**
  * Maximum message size in bytes.
  * This setting is intended to disallow messages larger than 1 MiB (total all objects together including all frames).
@@ -735,6 +737,9 @@ class MessageDecoder
         this.messageId = null;
         this.action = null;
         this.length = null;
+
+        const loggerId = `${(this).constructor.name}`;
+        this.logger = Logger(loggerId, ( (process ? process.env : window) || {} ).LOG_LEVEL );
     }
 
     /**
@@ -896,7 +901,7 @@ class MessageDecoder
             }
         }
         catch (e) {
-            console.error("Could not unpack message:", e);
+            this.logger.error("Could not unpack message:", e);
             props = null;
         }
 

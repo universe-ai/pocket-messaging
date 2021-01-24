@@ -2,6 +2,10 @@ const WSServer = require("../pocket-sockets/WSServer");
 const TCPServer = require("../pocket-sockets/TCPServer");
 const MessageComm = require("./MessageComm");
 const {MessageEncoder} = require("./Message");
+const Logger = require("../logger/Logger");
+
+const loggerId = `Hub`;
+const logger = Logger(loggerId, ( (process ? process.env : window) || {} ).LOG_LEVEL );
 
 const registry = [];
 
@@ -25,15 +29,15 @@ function HubServer(servers)
             serverSocket = new WSServer(server.listen);
         }
         else {
-            console.error("Invalid server config, ignoring one listener.");
+            logger.error("Invalid server config, ignoring one listener.");
             return;
         }
 
 
-        console.error(`Hub server listening on ${server.listen.port}`);
+        logger.info(`Hub server listening on ${server.listen.port}`);
 
         serverSocket.onConnection( async (serverClientSocket) => {
-            console.error("Client connected on", server.listen.port);
+            logger.info("Client connected on", server.listen.port);
             const messageComm = new MessageComm(serverClientSocket);
 
             const disconnected = () => {
@@ -79,7 +83,7 @@ function HubServer(servers)
             serverSocket.listen();
         }
         catch(e) {
-            console.error("Error when initiating listener for server: ", e);
+            logger.error("Error when initiating listener for server: ", e);
         }
     });
 }
