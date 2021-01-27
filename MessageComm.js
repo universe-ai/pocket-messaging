@@ -112,7 +112,7 @@ class MessageComm
             message.addString("action", "ping");
             const asyncRet = await this.sendMessage(message, true, 10);
             if (!asyncRet.isSuccess()) {
-                this.logger.error("Socket timeouted of inactivity, closing it.");
+                this.logger.info("Socket timeouted of inactivity, closing it.");
                 this.socket.disconnect();
                 return;
             }
@@ -160,7 +160,7 @@ class MessageComm
     {
         if (this.isClosed) {
             const err = "Socket is closed.";
-            this.logger.error(err);
+            this.logger.debug(err);
             return AsyncRet.Exception(err);
         }
 
