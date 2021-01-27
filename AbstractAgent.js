@@ -782,8 +782,14 @@ class AbstractAgent
      */
     _connectFailure(name, msg)
     {
+        const err = {
+            origin: "Agent",
+            errorType: "connection",
+            msg: msg,
+            name: name
+        };
         const a = Array.prototype.concat(this.onConnectFailureEvents[name] || [], this.onConnectFailureEvents["*"] || []);
-        a.forEach( fn => fn(msg, name) );
+        a.forEach( fn => fn(err) );
     }
 }
 
