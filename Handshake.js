@@ -102,7 +102,7 @@ async function AsClient(messageComm, serverPubKey, keyPair, parameters, innerEnc
         }
 
         // Generate random challenge message.
-        const message   = Buffer.from(Hash.generateRandomBytes(32));
+        const message   = Hash.generateRandomBytes(32);
         const challenge = Crypt.symmetricEncrypt(message, token);
         const message1  = new MessageEncoder(incomingMsgId);
         message1.addBinary("challenge", toBuffer(challenge));
