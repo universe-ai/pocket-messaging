@@ -13,12 +13,12 @@ on:
 
 # Workflow jobs description
 jobs:
-  build:
+  test_all:
     runs-on: ubuntu-latest
 
     container: node:12-alpine
 
-    steps:      
+    steps:
       - uses: actions/checkout@v2
         with:
           repository: universe-ai/core-js
@@ -28,12 +28,12 @@ jobs:
         with:
           repository: universe-ai/pocket-messaging
           path: ./core-js/pocket-messaging
-          
+
       - uses: actions/checkout@v2
         with:
           repository: universe-ai/pocket-sockets
           path: ./core-js/pocket-sockets
-          
+
       - name: Test all
         run: |
           cd ./core-js
