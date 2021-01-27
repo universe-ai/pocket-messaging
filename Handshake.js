@@ -95,8 +95,6 @@ async function AsClient(messageComm, serverPubKey, keyPair, parameters, innerEnc
             throw "messageComm is invalid";
         }
 
-        const sharedKey     = Hash.generateRandomBytes(32);
-
         // STEP 2
         const [token, incomingMsgId] = await ReadRandomToken(messageComm);
         if (!token || !incomingMsgId) {
