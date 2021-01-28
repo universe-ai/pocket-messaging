@@ -78,6 +78,7 @@ const MessageComm = require("./MessageComm");
 const Hash = require("../util/hash");
 const {HubClient} = require("./Hub");
 const Logger = require("../logger/Logger");
+const assert = require("assert");
 
 /**
  * @typedef {Object} KeyPair
@@ -374,7 +375,7 @@ class AbstractAgent
     }
 
     /**
-     * For peer to peer connections via a hub, one of the client's
+     * For peer to peer connections via a hub, one of the clients
      * need to transform into a server for the handshake to proceed.
      *
      * This function transforms a client params object to a server accept params object.
@@ -405,7 +406,7 @@ class AbstractAgent
     }
 
     /**
-     * Return the client protocol type.
+     * Returns the client protocol type.
      * This is impl specific.
      * @param {Object} client config object
      * @return {string} 
@@ -422,8 +423,8 @@ class AbstractAgent
      * @param {Object} client.params object
      * @param {string} sharedParams received from Server. What this is is impl specific, but it
      *  contains something the Client should know about.
-     * @param {string} name of client block
      * @param {MessageComm} messageComm
+     * @param {string} name of client block
      *
      */
     async _clientConnected(localKeyPair, remotePubKey, clientParams, sharedParams, messageComm, name)
@@ -437,8 +438,8 @@ class AbstractAgent
      * @param {string} remotePubKey
      * @param {Object} curatedServerParams curated server.accept.params object
      * @param {string} sharedParams created by Server and passed to Client. Put here for reference.
-     * @param {string} name in accept block
      * @param {MessageComm} messageComm
+     * @param {string} name in accept block
      *
      */
     async _serverConnected(localKeyPair, remotePubKey, curatedServerParams, sharedParams, messageComm, name)
@@ -464,7 +465,7 @@ class AbstractAgent
      * Event when client connection fails to connect.
      * Signature of callback fn is (msg, name).
      * @param {Function} fn
-     * @param {string} name
+     * @param {string} [name]
      */
     onError(fn, name)
     {
@@ -483,12 +484,11 @@ class AbstractAgent
      * @static
      * @param {string} clientPubKey
      * @param {string | Buffer} serializedClientParams client parameters as given by SerializeClientParams().
-     * @param {Array} server accept blocks array to find match for clientPubKey and parametersJSON.
+     * @param {Array} acceptBlocks server accept blocks array to find match for clientPubKey and parametersJSON.
      * @param {Number} clientInnerEncrypt 0 for no client preference for inner encryption, 1 for required inner encryption.
      * @return {Array<curatedServerParams <Object>, sharedParams <string | null>, innerEncryption <Number>, name {string | null}}
-     *  matched params object from the server accept object (curated rootNodeId),
+     *  curatedServerParams is the matched params object from the server accept object (curated rootNodeId).
      *  sharedParams is whatever the server needs to send the client in the final stage of the handshake.
-     *
      *  innerEncryption is the decided upon value for client and server. 1 means use inner encryption.
      */
     static async ServerMatchAccept(clientPubKey, serializedClientParams, acceptBlocks, clientInnerEncrypt)
@@ -533,15 +533,17 @@ class AbstractAgent
                 // Fall through to see if any of the params match.
 
                 // Match implementation specific params in the server accept blocks.
-                for (let index2=0; index2<accept.params.length; index2++) {
-                    const serverParams = accept.params[index2];
-                    [curatedServerParams, sharedParams] = await this.MatchParams(serializedClientParams, serverParams, clientPubKey);
-                    if (curatedServerParams) {
-                        if (accept.innerEncrypt != null) {
-                            innerEncryption = Math.max(innerEncryption, accept.innerEncrypt);
+                if (accept.params) {
+                    for (let index2=0; index2<accept.params.length; index2++) {
+                        const serverParams = accept.params[index2];
+                        [curatedServerParams, sharedParams] = await this.MatchParams(serializedClientParams, serverParams, clientPubKey);
+                        if (curatedServerParams) {
+                            if (accept.innerEncrypt != null) {
+                                innerEncryption = Math.max(innerEncryption, accept.innerEncrypt);
+                            }
+                            name = accept.name;
+                            break;
                         }
-                        name = accept.name;
-                        break;
                     }
                 }
 
@@ -588,6 +590,7 @@ class AbstractAgent
 
             serverSocket.onConnection( async (serverClientSocket) => {
                 this.logger.info(`Peer connected on port ${server.listen.port}.`);
+                assert(serverClientSocket, "Expecting a valid server client socket as input to MessageComm");
                 const messageComm = new MessageComm(serverClientSocket);
                 // Limit the size of transfer before disconnect to reduce DOS attack vector.
                 messageComm.setBufferSize(2048);
@@ -717,6 +720,7 @@ class AbstractAgent
                                         (clientPubKey, serializedClientParams, clientInnerEncrypt) => this.constructor.ServerMatchAccept(clientPubKey, serializedClientParams, server.accept, clientInnerEncrypt));
 
                                     if (result) {
+                                        // Unused
                                         let _;
                                         [_, sharedParams, _, innerEncrypt, encKeyPair, encPeerPublicKey] = result;
                                         handshakeSuccessful = true;
@@ -774,7 +778,7 @@ class AbstractAgent
     }
 
     /**
-     * Must be alled from _clientConnected and _serverConnected
+     * Must be called from _clientConnected and _serverConnected
      *
      * User can hook this event on "name".
      * Args are passed on as the implementation does it, the name is attached as last argument.
