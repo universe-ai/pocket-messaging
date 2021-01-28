@@ -35,7 +35,7 @@
  * connected to its peer protocol via the messageComm.
  * 
  *
- * A client socket upon connection is simpler than it's server counterpart, it has a direct intent
+ * A client socket upon connection is simpler than its server counterpart, it has a direct intent
  * of connecting to a specific server (client.serverPubKey) using specific params (client.params)
  * which are passed to the server.
  *
@@ -57,7 +57,7 @@
  * and it will handshake as a server does (described above).
  * It will however after a successful handshake still invoke the _clientConnected fn (not _serverConnected).
  *
- * The following functions has to be implemented in a derived class:
+ * The following functions have to be implemented in a derived class:
  * SerializeClientParams
  * ClientParamsIntoServer
  * MatchParams
@@ -125,7 +125,7 @@ class AbstractAgent
      *               // This is useful when regular TLS is not available, or when TLS termination
      *               // is done by a non-trusted part of the network.
      *               // 0=don't require, 1=require message encryption,
-     *               // The reason is is a number and not a boolean is for possible added
+     *               // The reason this is a number and not a boolean is for possible added
      *               // flexibility in the future with more options than on/off.
      *               innerEncrypt: <number | null | undefined>,
      *
@@ -154,7 +154,7 @@ class AbstractAgent
      *           // This is useful when regular TLS is not available, or when TLS termination
      *           // is done by a non-trusted part of the network, or when connecting via a non-trusted hub.
      *           // 0=don't require, 1=require message encryption,
-     *           // The reason is is a number and not a boolean is for possible added
+     *           // The reason this is a number and not a boolean is for possible added
      *           // flexibility in the future with more options than on/off.
      *           innerEncrypt: <number | null | undefined>,
      *
@@ -176,7 +176,7 @@ class AbstractAgent
      *               hub: {
      *                   // Optional shared secret between peers for cloaked matching.
      *                   // When connecting via a hub the peers match via the hash of (protocolType, peerPubKey, sharedSecret).
-     *                   // If a third party is aware of a peer public key and the protocol is is connecting with and which hub it is connecting via,
+     *                   // If a third party is aware of a peer public key and the protocol it is connecting with and which hub it is connecting via,
      *                   // it could interfere with the connection by posing as one of the peers which will result in peer's not finding each other as they should.
      *                   // An interferer could not connect as a peer, only interfere with peer's successfully connecting to each other.
      *                   // The sharedSecret can be used to mitigate such annoyances.
@@ -214,7 +214,7 @@ class AbstractAgent
         this.config.servers = (this.config.servers || []).filter( server => {
             try {
                 if (typeof server.keyPair !== "object") {
-                    throw "keyPair must be provided.";
+                    throw "keyPair object must be provided.";
                 }
                 if (typeof server.listen !== "object") {
                     throw "listen object must be provided.";
@@ -246,7 +246,7 @@ class AbstractAgent
                         throw "accept.clientPubKey must be string, string[] or function.";
                     }
                     if (accept.innerEncrypt != null && accept.innerEncrypt !== 0 && accept.innerEncrypt !== 1) {
-                        throw "accept.innerEncrypt must be number 0 or 1, if set.";
+                        throw "accept.innerEncrypt must be number 0 or 1 when set.";
                     }
                 });
                 // Note: server.listen will be validated by the server socket class.
@@ -262,16 +262,16 @@ class AbstractAgent
         this.config.clients = (this.config.clients || []).filter( client => {
             try {
                 if (typeof client.keyPair !== "object") {
-                    throw "keyPair must be provided.";
+                    throw "keyPair object must be provided.";
                 }
                 if (!client.serverPubKey) {
                     throw "serverPubKey must be provided.";
                 }
                 if (client.innerEncrypt != null && client.innerEncrypt !== 0 && client.innerEncrypt !== 1) {
-                    throw "innerEncrypt must be number 0 or 1, if set.";
+                    throw "innerEncrypt must be number 0 or 1 when if set.";
                 }
                 if (typeof client.connect !== "object") {
-                    throw "connect must be provided.";
+                    throw "connect object must be provided.";
                 }
                 if (!client.connect.protocol) {
                     throw "connect.protocol must be provided.";
@@ -287,10 +287,10 @@ class AbstractAgent
                     throw `Unknown transport protocol: ${client.connect.protocol}`;
                 }
                 if (client.connect.reconnect != null && typeof client.connect.reconnect !== "boolean") {
-                    throw "connect.reconnect must be boolean if set.";
+                    throw "connect.reconnect must be boolean when set.";
                 }
                 if (client.connect.hub && typeof client.connect.hub !== "object") {
-                    throw "connect.hub must be an object, if set.";
+                    throw "connect.hub must be an object when set.";
                 }
                 // Note: connect.{host,port} will be checked by the socket client instance.
                 // client.params will be validated by the impl deriving this class.
@@ -342,12 +342,22 @@ class AbstractAgent
 
         // Close all server sockets and in the process also their accepted client sockets.
         this.serverSockets.forEach( socket => {
-            socket.close();
+            if (socket) {
+                socket.close();
+            }
+            else {
+                this.logger.error("Attempted to close invalid server socket.");
+            }
         });
 
         // Close all client sockets.
         this.clientSockets.forEach( socket => {
-            socket.disconnect();
+            if (socket) {
+                socket.disconnect();
+            }
+            else {
+                this.logger.error("Attempted to close invalid client socket.");
+            }
         });
     }
 
