@@ -1649,6 +1649,7 @@ describe("MessageComm", () => {
                 }
             };
             assert.doesNotThrow(() => {
+                comm.isClosed = false;
                 comm._onDisconnect();
                 assert(asyncRet.isSocketError());
             });
@@ -1663,6 +1664,7 @@ describe("MessageComm", () => {
                 }
             };
             assert.doesNotThrow(() => {
+                comm.isClosed = false;
                 comm._onDisconnect();
                 assert(asyncRet.isSocketError());
             });
@@ -1673,6 +1675,7 @@ describe("MessageComm", () => {
             };
             assert.doesNotThrow(() => {
                 assert(comm.msgsInFlight["testid"]);
+                comm.isClosed = false;
                 comm._onDisconnect();
                 assert(!comm.msgsInFlight["testid"]);
             });
@@ -1693,6 +1696,7 @@ describe("MessageComm", () => {
             };
             assert.doesNotThrow(() => {
                 assert(!event);
+                comm.isClosed = false;
                 comm._onDisconnect();
                 assert(event == "disconnect");
             });
