@@ -593,6 +593,11 @@ class MessageComm
      */
     _onDisconnect()
     {
+        if (this.isClosed) {
+            return;
+        }
+        this.isClosed = true;
+
         // Notify all messages pending reply
         Object.keys(this.msgsInFlight).forEach(msgId => {
             const msgInFlight = this.msgsInFlight[msgId];
@@ -613,7 +618,6 @@ class MessageComm
             }
             this.clearPendingMessage(msgId);
         });
-        this.isClosed = true;
         this._triggerEvent("disconnect");
     }
 
