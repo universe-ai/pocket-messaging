@@ -87,6 +87,14 @@ const logger = Logger(loggerId, ( (process ? process.env : window) || {} ).LOG_L
  * The first entry is the shared parameters.
  * The second entry is innerEncrypt, representing the agreed upon inner encryption level: 0=no encryption, 1=use encryption.
  * The third and fourth entries are keyPair and serverEncKey which are session keys which can be used for transport encryption.
+ *
+ * Possible causes of failed handshake from the client side are:
+ *  - either the token or the incoming message identifier returned by random token reading is null.
+ *  - when any of the involved message encoder objects fail initialization.
+ *  - when failure occurs during the addition of data to message encoder objects.
+ *  - when message encoder object packing fails to execute due to message length overflow.
+ *  - when message passing procedures fail to process and transmit data buffers.
+ *  - when signed message return does not match the expected server signature.
  */
 async function AsClient(messageComm, serverPubKey, keyPair, parameters, innerEncryption)
 {
@@ -227,6 +235,11 @@ function ReadRandomToken(messageComm)
  *  clientPubKey is the client's ID.
  *  innerEncrypt is the agreed upon inner encryption level, 0=no encryption, 1=use encryption
  *  encKeyPair and clientEncKey are session keys which can be used for transport encryption.
+ *
+ * Possible causes of failed handshake from the server side are:
+ *  - when any of the message passing procedures fail to process and transmit data buffers.
+ *  - when message encoder object packing fails to execute due to message length overflow.
+ *  - when server match accept procedure returns false.
  */
 async function AsServer(messageComm, keyPair, ServerMatchAccept)
 {
@@ -238,7 +251,7 @@ async function AsServer(messageComm, keyPair, ServerMatchAccept)
         // STEP 1
         //
         // Generate random handshake token.
-        const token = Buffer.from(Hash.generateRandomBytes(32));
+        const token = Hash.generateRandomBytes(32);
 
         // We create a message ID from the first four bytes of the token.
         // This is so we can setup a reply chain on the binary data we send.
