@@ -30,7 +30,7 @@
  * sharedParams is what the impl spec fn MatchParams returns as negotiated parameters both for client and server. This has been sent to the client in the handshake.
  *
  * Finally the impl specific _serverConnected is called with
- *  (server.keyPair, clientPubKey, curatedServerParams, sharedParams, messageComm)
+ *  (server.keyPair, clientPubKey, curatedServerParams, sharedParams, messageComm, name)
  * This impl specific function should instantiate a protocol with the given parameters, which will be
  * connected to its peer protocol via the messageComm.
  * 
@@ -47,7 +47,7 @@
  *  in such case encKeyPair and encPeerPublicKey are passed to the messageComm.
  *
  * Finally the impl specific _clientConnected fn is called with
- *  (client.keyPair, client.serverPubKey, client.params, sharedParams, messageComm)
+ *  (client.keyPair, client.serverPubKey, client.params, sharedParams, messageComm, name)
  * This impl specific function should instantiate a protocol with the given parameters, which will be
  * connected to its peer protocol via the messageComm.
  *
@@ -412,10 +412,11 @@ class AbstractAgent
      * @param {Object} client.params object
      * @param {string} sharedParams received from Server. What this is is impl specific, but it
      *  contains something the Client should know about.
+     * @param {string} name of client block
      * @param {MessageComm} messageComm
      *
      */
-    async _clientConnected(localKeyPair, remotePubKey, clientParams, sharedParams, messageComm)
+    async _clientConnected(localKeyPair, remotePubKey, clientParams, sharedParams, messageComm, name)
     {
         throw "Not implemented.";
     }
@@ -426,10 +427,11 @@ class AbstractAgent
      * @param {string} remotePubKey
      * @param {Object} curatedServerParams curated server.accept.params object
      * @param {string} sharedParams created by Server and passed to Client. Put here for reference.
+     * @param {string} name in accept block
      * @param {MessageComm} messageComm
      *
      */
-    async _serverConnected(localKeyPair, remotePubKey, curatedServerParams, sharedParams, messageComm)
+    async _serverConnected(localKeyPair, remotePubKey, curatedServerParams, sharedParams, messageComm, name)
     {
         throw "Not implemented.";
     }
@@ -473,7 +475,7 @@ class AbstractAgent
      * @param {string | Buffer} serializedClientParams client parameters as given by SerializeClientParams().
      * @param {Array} server accept blocks array to find match for clientPubKey and parametersJSON.
      * @param {Number} clientInnerEncrypt 0 for no client preference for inner encryption, 1 for required inner encryption.
-     * @return {Array<curatedServerParams <Object>, sharedParams <string | null>, innerEncryption <Number>}
+     * @return {Array<curatedServerParams <Object>, sharedParams <string | null>, innerEncryption <Number>, name {string | null}}
      *  matched params object from the server accept object (curated rootNodeId),
      *  sharedParams is whatever the server needs to send the client in the final stage of the handshake.
      *
@@ -483,6 +485,7 @@ class AbstractAgent
     {
         let curatedServerParams = null;
         let sharedParams        = null;
+        let name                = null;
 
         let innerEncryption = clientInnerEncrypt;
 
@@ -527,6 +530,7 @@ class AbstractAgent
                         if (accept.innerEncrypt != null) {
                             innerEncryption = Math.max(innerEncryption, accept.innerEncrypt);
                         }
+                        name = accept.name;
                         break;
                     }
                 }
@@ -547,7 +551,7 @@ class AbstractAgent
             return null;
         }
 
-        return [curatedServerParams, sharedParams, innerEncryption];
+        return [curatedServerParams, sharedParams, innerEncryption, name];
     }
 
     //
@@ -583,7 +587,7 @@ class AbstractAgent
                     (clientPubKey, serializedClientParams, clientInnerEncrypt) => this.constructor.ServerMatchAccept(clientPubKey, serializedClientParams, server.accept, clientInnerEncrypt));
 
                 if (result) {
-                    const [curatedServerParams, sharedParams, clientPubKey, innerEncrypt, encKeyPair, encPeerPublicKey] = result;
+                    const [curatedServerParams, sharedParams, clientPubKey, innerEncrypt, encKeyPair, encPeerPublicKey, name] = result;
                     if (innerEncrypt > 0) {
                         messageComm.setEncrypt(encKeyPair, encPeerPublicKey);
                         this.logger.info("MessageComm encrypted.");
@@ -592,7 +596,7 @@ class AbstractAgent
                     messageComm.setBufferSize();  // Set back to default limit.
 
                     this._serverConnected(server.keyPair,
-                        clientPubKey, curatedServerParams, sharedParams, messageComm);
+                        clientPubKey, curatedServerParams, sharedParams, messageComm, name);
                 }
                 else {
                     this.logger.error("Could not handshake accepted socket, disconnecting.");
@@ -741,7 +745,7 @@ class AbstractAgent
                             }
 
                             this._clientConnected(client.keyPair,
-                                client.serverPubKey, client.params, sharedParams, messageComm);
+                                client.serverPubKey, client.params, sharedParams, messageComm, client.name);
                         }
                         else {
                             throw "Could not handshake";
@@ -772,7 +776,7 @@ class AbstractAgent
     {
         // Get all event handlers who matches this connection's name
         const a = Array.prototype.concat(this.onConnectedEvents[name] || [], this.onConnectedEvents["*"] || []);
-        a.forEach( fn => fn(...args, name) );
+        a.forEach( fn => fn(name, ...args) );
     }
 
     /**

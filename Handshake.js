@@ -235,6 +235,7 @@ function ReadRandomToken(messageComm)
  *  clientPubKey is the client's ID.
  *  innerEncrypt is the agreed upon inner encryption level, 0=no encryption, 1=use encryption
  *  encKeyPair and clientEncKey are session keys which can be used for transport encryption.
+ *  acceptName name of the server accept block
  *
  * Possible causes of failed handshake from the server side are:
  *  - when any of the message passing procedures fail to process and transmit data buffers.
@@ -306,7 +307,7 @@ async function AsServer(messageComm, keyPair, ServerMatchAccept)
             throw "Could not match client public key or preferences.";
         }
 
-        const [curatedServerParams, sharedParams, innerEncryption] = matched;
+        const [curatedServerParams, sharedParams, innerEncryption, acceptName] = matched;
 
         const sharedParamsEnc       = Crypt.symmetricEncrypt(Buffer.from(sharedParams), token);
         const innerEncryptionEnc    = Crypt.symmetricEncrypt(Buffer.from(String(innerEncryption)), token);
@@ -324,7 +325,7 @@ async function AsServer(messageComm, keyPair, ServerMatchAccept)
         messageComm.send(buffers3);
 
         // All GOOD!
-        return [curatedServerParams, sharedParams, clientPubKey, innerEncryption, encKeyPair, toBuffer(clientEncKey)];
+        return [curatedServerParams, sharedParams, clientPubKey, innerEncryption, encKeyPair, toBuffer(clientEncKey), acceptName];
     }
     catch(e) {
         logger.error(e);
