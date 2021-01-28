@@ -599,11 +599,17 @@ class MessageComm
             const onReply = msgInFlight.onReply;
             const onCallback = msgInFlight.onCallback;
             const asyncRet = AsyncRet.SocketError("Socket disconnected");
-            if (onReply) {
-                onReply(asyncRet);
+            try {
+                if (onReply) {
+                    onReply(asyncRet);
+                }
+                else if (onCallback) {
+                    onCallback(asyncRet);
+                }
             }
-            else if (onCallback) {
-                onCallback(asyncRet);
+            catch(e) {
+                const err = typeof e === "object" ? e.stack || e.message || e : e;
+                this.logger.error("onDisconnect error when signalling onReply or onCallback:", e);
             }
             this.clearPendingMessage(msgId);
         });
