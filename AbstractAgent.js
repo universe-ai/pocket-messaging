@@ -96,48 +96,50 @@ class AbstractAgent
      *
      *  config = {
      *   servers: [
-     *       // pub, priv keys of the server, ed25519.
-     *       keyPair: {pub: "", priv: ""}
+     *       {
+     *          // pub, priv keys of the server, ed25519.
+     *          keyPair: {pub: "", priv: ""}
      *
-     *       // Listener socket
-     *       listen: {
-     *          protocol: "tcp" | "websocket",
-     *          host: "localhost",
-     *          port: 8080,
-     *          cert: // see AbstractServer for details
-     *          key:  ^
-     *       },
+     *          // Listener socket
+     *          listen: {
+     *              protocol: "tcp" | "websocket",
+     *              host: "localhost",
+     *              port: 8080,
+     *              cert: // see AbstractServer for details
+     *              key:  ^
+     *          },
      *
-     *       // Accept blocks for handshaking a newly connected client socket.
-     *       // This base class verifies keys, the derived class will need to add
-     *       // protocol specific parameters to match, if any.
-     *       accept: [
-     *           {
-     *               // Client public key received in handshake will be matched using
-     *               // this clientPubKey value.
-     *               // If a match is made then we proceed to matching client protocol
-     *               // preferences to the protocols defined below.
-     *               clientPubKey: <string | string[] | async Function(clientPubKey):boolean>,
+     *          // Accept blocks for handshaking a newly connected client socket.
+     *          // This base class verifies keys, the derived class will need to add
+     *          // protocol specific parameters to match, if any.
+     *          accept: [
+     *              {
+     *                  // Client public key received in handshake will be matched using
+     *                  // this clientPubKey value.
+     *                  // If a match is made then we proceed to matching client protocol
+     *                  // preferences to the protocols defined below.
+     *                  clientPubKey: <string | string[] | async Function(clientPubKey):boolean>,
      *
-     *               // Optional arbitrary name, used for onConnect events
-     *               name: <string | undefined>
+     *                  // Optional arbitrary name, used for onConnect events
+     *                  name: <string | undefined>
      *
-     *               // Have the MessageComm perform encryption on data sent.
-     *               // This is useful when regular TLS is not available, or when TLS termination
-     *               // is done by a non-trusted part of the network.
-     *               // 0=don't require, 1=require message encryption,
-     *               // The reason this is a number and not a boolean is for possible added
-     *               // flexibility in the future with more options than on/off.
-     *               innerEncrypt: <number | null | undefined>,
+     *                  // Have the MessageComm perform encryption on data sent.
+     *                  // This is useful when regular TLS is not available, or when TLS termination
+     *                  // is done by a non-trusted part of the network.
+     *                  // 0=don't require, 1=require message encryption,
+     *                  // The reason this is a number and not a boolean is for possible added
+     *                  // flexibility in the future with more options than on/off.
+     *                  innerEncrypt: <number | null | undefined>,
      *
-     *               params: [
-     *                   {
-     *                       <impl specific details here.
-     *                        these will be matched against the client params.>
-     *                   },
-     *               ],
-     *           },
-     *       ]
+     *                  params: [
+     *                      {
+     *                          <impl specific details here.
+     *                          these will be matched against the client params.>
+     *                      },
+     *                  ],
+     *              },
+     *          ]
+     *      }
      *   ],
      *
      *   clients: [
@@ -191,6 +193,7 @@ class AbstractAgent
      *           }
      *       }
      *   ]
+     *  }
      */
     constructor(config)
     {
