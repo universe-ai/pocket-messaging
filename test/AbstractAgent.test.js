@@ -5,6 +5,22 @@ const assert = require("assert");
 
 class TestAgent extends AbstractAgent
 {
+    static async MatchParams(serializedClientParams, serverParams, clientPubKey)
+    {
+        const rootNodeId    = 3;
+        const protocol      = 9;
+        const config        = { "test1": "test2"};
+
+        return [
+            {
+                rootNodeId:     rootNodeId,
+                protocol:       protocol,
+                config:         config,
+                storageFactory: null,
+            },
+            JSON.stringify({rootNodeId: rootNodeId}),
+        ];
+    }
 }
 
 const config = {
@@ -284,6 +300,152 @@ describe("AbstractAgent", () => {
             assert(data.errorType == "connection");
             assert(data.msg == "bad error");
             assert(data.name == "name");
+        });
+    });
+
+    describe("ServerMatchAccept", () => {
+        test("Accept client pub key must be string, array or function", async (done) => {
+			const clientPubKey = config.servers[0].accept.clientPubKey;
+			const serializedClientParams = JSON.stringify(config.clients[0].params);
+			const acceptBlocks = config.clients;
+			const clientInnerEncrypt = 1;
+
+			const data = await AbstractAgent.ServerMatchAccept(clientPubKey, serializedClientParams, acceptBlocks, clientInnerEncrypt);
+			assert(data == null);
+            done();
+        });
+
+        test("unmatched curated params", async (done) => {
+			class NullAgent extends AbstractAgent
+			{
+				static async MatchParams(serializedClientParams, serverParams, clientPubKey)
+				{
+					return [null, null];
+				}
+			}
+
+			const clientPubKey = config.servers[0].accept[0].clientPubKey;
+			const serializedClientParams = JSON.stringify(config.clients[0].params);
+			const acceptBlocks = config.servers[0].accept;
+			const clientInnerEncrypt = 1;
+
+			const data = await NullAgent.ServerMatchAccept(clientPubKey, serializedClientParams, acceptBlocks, clientInnerEncrypt);
+			assert(data == null);
+            done();
+        });
+
+        test("successful call with string clientPubKey", async (done) => {
+			const clientPubKey = config.servers[0].accept[0].clientPubKey;
+			const serializedClientParams = JSON.stringify(config.clients[0].params);
+			const acceptBlocks = config.servers[0].accept;
+			const clientInnerEncrypt = 1;
+
+			const data = await TestAgent.ServerMatchAccept(clientPubKey, serializedClientParams, acceptBlocks, clientInnerEncrypt);
+			assert(data[0].rootNodeId == 3);
+			assert(data[0].protocol == 9);
+			assert(data[0].config["test1"]);
+			assert(data[0].config["test1"] == "test2");
+			assert(data[0].storageFactory == null);
+			assert(JSON.parse(data[1]).rootNodeId == 3);
+			assert(JSON.parse(data[2]) == 1);
+			assert(data[3] == "onConnect-name");
+            done();
+        });
+
+        test("successful call with array clientPubKey", async (done) => {
+		    const cfg = {
+				"servers": [
+					{
+						"keyPair": {
+							"pub": "one",
+							"priv": "two"
+						},
+						"listen":  {
+							"protocol": "tcp",
+							"host": "localhost",
+							"port": 8080,
+							"cert": "self-signed-cert",
+							"key": "self-signed-key"
+						},
+						"accept": [
+							{
+								"clientPubKey": ["clientpubkey"],
+								"name": "onConnect-name",
+								"innerEncrypt": 1,
+								"params": [
+									{
+										"data": "value"
+									}
+								]
+							}
+						]
+					}
+				]
+			};
+
+			const clientPubKey = config.servers[0].accept[0].clientPubKey;
+			const serializedClientParams = JSON.stringify(config.clients[0].params);
+			const acceptBlocks = cfg.servers[0].accept;
+			const clientInnerEncrypt = 1;
+
+			const data = await TestAgent.ServerMatchAccept(clientPubKey, serializedClientParams, acceptBlocks, clientInnerEncrypt);
+			assert(data[0].rootNodeId == 3);
+			assert(data[0].protocol == 9);
+			assert(data[0].config["test1"]);
+			assert(data[0].config["test1"] == "test2");
+			assert(data[0].storageFactory == null);
+			assert(JSON.parse(data[1]).rootNodeId == 3);
+			assert(JSON.parse(data[2]) == 1);
+			assert(data[3] == "onConnect-name");
+            done();
+        });
+
+        test("successful call with function clientPubKey", async (done) => {
+		    const cfg = {
+				"servers": [
+					{
+						"keyPair": {
+							"pub": "one",
+							"priv": "two"
+						},
+						"listen":  {
+							"protocol": "tcp",
+							"host": "localhost",
+							"port": 8080,
+							"cert": "self-signed-cert",
+							"key": "self-signed-key"
+						},
+						"accept": [
+							{
+								"clientPubKey": function() { return "clientpubkey"; },
+								"name": "onConnect-name",
+								"innerEncrypt": 1,
+								"params": [
+									{
+										"data": "value"
+									}
+								]
+							}
+						]
+					}
+				]
+			};
+
+			const clientPubKey = config.servers[0].accept[0].clientPubKey;
+			const serializedClientParams = JSON.stringify(config.clients[0].params);
+			const acceptBlocks = cfg.servers[0].accept;
+			const clientInnerEncrypt = 1;
+
+			const data = await TestAgent.ServerMatchAccept(clientPubKey, serializedClientParams, acceptBlocks, clientInnerEncrypt);
+			assert(data[0].rootNodeId == 3);
+			assert(data[0].protocol == 9);
+			assert(data[0].config["test1"]);
+			assert(data[0].config["test1"] == "test2");
+			assert(data[0].storageFactory == null);
+			assert(JSON.parse(data[1]).rootNodeId == 3);
+			assert(JSON.parse(data[2]) == 1);
+			assert(data[3] == "onConnect-name");
+            done();
         });
     });
 });
