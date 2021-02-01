@@ -496,6 +496,11 @@ class AbstractAgent
      */
     static async ServerMatchAccept(clientPubKey, serializedClientParams, acceptBlocks, clientInnerEncrypt)
     {
+        // Create new local-scoped logger object
+        const instanceId = Hash.generateRandomHex(4);
+        const loggerId = `${(this).constructor.name}:${instanceId}`;
+        const logger = Logger(loggerId, ( (process ? process.env : window) || {} ).LOG_LEVEL );
+
         let curatedServerParams = null;
         let sharedParams        = null;
         let name                = null;
@@ -562,7 +567,7 @@ class AbstractAgent
             }
         }
         catch(e) {
-            this.logger.error("Could not match parameters in Agent.");
+            logger.error("Could not match parameters in Agent. Reason: ", (e ? e : "unknown"));
             return null;
         }
 
