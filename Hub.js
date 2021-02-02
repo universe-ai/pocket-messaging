@@ -20,7 +20,17 @@ const registry = [];
  */
 function HubServer(servers)
 {
+    if (!servers) {
+        logger.error("Invalid servers parameter:", servers);
+        return;
+    }
+
     servers.forEach( server => {
+        if (!server.listen) {
+            logger.error("Server config missing listen attribute, ignoring one listener.");
+            return;
+        }
+
         let serverSocket;
         if (server.listen.protocol.toLowerCase() === "tcp") {
             serverSocket = new TCPServer(server.listen);
