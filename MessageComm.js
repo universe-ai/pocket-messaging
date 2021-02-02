@@ -310,7 +310,7 @@ class MessageComm
      * Set the router function where incoming (non-reply) messages are routed.
      *
      * @param {RouteMessageCallback} fn
-     * @param {boolean | null} routeAsBinary if set to true then the raw incoming buffers
+     * @param {boolean | null} [routeAsBinary] if set to true then the raw incoming buffers
      *  are routed to the function. The function then has the signature (Array<Buffer>).
      *  Any corking of messages is ignored for this mode.
      *  Any buffered data due to corking will be flushed to the router function when this mode
