@@ -246,6 +246,8 @@ async function sleep(ms)
  * @param {string} want
  * @param {string[]} offer
  * @param {MessageComm} messageComm
+ * @return {Array<bool> | null}
+ * @throws Error will be thrown when any of the arguments are missing or invalid.
  *
  */
 async function HubClient(want, offer, messageComm)
@@ -254,6 +256,10 @@ async function HubClient(want, offer, messageComm)
     const message = new MessageEncoder("match");
     message.addString("want", want);
     message.addArray("offer", offer);
+
+    if (!messageComm) {
+        throw "Expecting MessageComm";
+    }
     const asyncRet = await messageComm.sendMessage(message, true, 0);
     // Await Instructions of being server or client.
     if (asyncRet.isSuccess()) {
