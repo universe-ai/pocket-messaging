@@ -114,4 +114,93 @@ describe("Hub", () => {
             ]));
         });
     });
+
+    describe("HubClient", () => {
+        test("missing want argument", async (done) => {
+            try {
+                await Hub.HubClient();
+            } catch(e) {
+                assert(e == "Expecting string");
+                done();
+            }
+            assert(false);
+        });
+
+        test("missing offer argument", async (done) => {
+            try {
+                await Hub.HubClient("wantdata");
+            } catch(e) {
+                assert(e == "Expecting Array");
+                done();
+            }
+            assert(false);
+        });
+
+        test("missing MessageComm argument", async (done) => {
+            try {
+                await Hub.HubClient("wantdata", []);
+            } catch(e) {
+                assert(e == "Expecting MessageComm");
+                done();
+            }
+            assert(false);
+        });
+
+        test("missing MessageComm argument", async (done) => {
+            try {
+                await Hub.HubClient("wantdata", []);
+            } catch(e) {
+                assert(e == "Expecting MessageComm");
+                done();
+            }
+            assert(false);
+        });
+
+        test("isSuccess false message exchange", async (done) => {
+            const messageComm = {
+                "sendMessage": jest.fn(() => {
+                    return {
+                        isSuccess: function(){
+                            return false
+                        }
+                    };
+                })
+            };
+
+            try {
+                const status = await Hub.HubClient("wantdata", [], messageComm);
+                assert(status == null);
+            } catch(e) {
+                assert(false);
+            }
+
+            done();
+        });
+
+         test("isSuccess true message exchange", async (done) => {
+            const messageComm = {
+                "sendMessage": jest.fn(() => {
+                    return {
+                        isSuccess: function(){
+                            return true;
+                        },
+                        getProps: function(){
+                            return {
+                                "isServer": false
+                            };
+                        }
+                    };
+                })
+            };
+
+            try {
+                const status = await Hub.HubClient("wantdata", [], messageComm);
+                assert(status[0] == false);
+            } catch(e) {
+                assert(false);
+            }
+
+            done();
+        });
+    });
 });
