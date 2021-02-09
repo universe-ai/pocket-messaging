@@ -136,11 +136,11 @@ describe("Hub", () => {
             assert(false);
         });
 
-        test("missing MessageComm argument", async (done) => {
+        test("bad forceServer argument", async (done) => {
             try {
-                await Hub.HubClient("wantdata", []);
+                await Hub.HubClient("wantdata", [], null, 1);
             } catch(e) {
-                assert(e == "Expecting MessageComm");
+                assert(e == "Expecting boolean");
                 done();
             }
             assert(false);
@@ -148,7 +148,7 @@ describe("Hub", () => {
 
         test("missing MessageComm argument", async (done) => {
             try {
-                await Hub.HubClient("wantdata", []);
+                await Hub.HubClient("wantdata", [], null, false);
             } catch(e) {
                 assert(e == "Expecting MessageComm");
                 done();
@@ -162,13 +162,16 @@ describe("Hub", () => {
                     return {
                         isSuccess: function(){
                             return false
+                        },
+                        errorMessage: function(){
+                            return ""
                         }
                     };
                 })
             };
 
             try {
-                const status = await Hub.HubClient("wantdata", [], messageComm);
+                const status = await Hub.HubClient("wantdata", [], messageComm, false);
                 assert(status == null);
             } catch(e) {
                 assert(false);
@@ -194,8 +197,8 @@ describe("Hub", () => {
             };
 
             try {
-                const status = await Hub.HubClient("wantdata", [], messageComm);
-                assert(status[0] == false);
+                const status = await Hub.HubClient("wantdata", [], messageComm, false);
+                assert(status == false);
             } catch(e) {
                 assert(false);
             }
