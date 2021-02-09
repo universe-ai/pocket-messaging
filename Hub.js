@@ -62,26 +62,43 @@ function HubServer(servers)
             // Read incoming message to get want/offer.
             messageComm.setRouter( async (action, msgId, props) => {
                 if (action === "match" ) {
+                    messageComm.cork();
                     const want = props.want;
                     const offer = props.offer;
-                    const [peerMessageComm, isServer] = await waitForMatch(want, offer, messageComm);
+                    const forceServer = props.forceServer;
+
+                    const [peerMessageComm, isServer] = await waitForMatch(want, offer, messageComm, forceServer);
                     if (!peerMessageComm) {
+                        unreg(messageComm);
                         messageComm.close();
                         return;
                     }
                     messageComm.offDisconnect( disconnected );
                     messageComm.onDisconnect( () => {
+                        unreg(regged.messageComm);
                         peerMessageComm.close();
                     });
 
                     // Set back to default limit.
                     messageComm.setBufferSize();
-                    // Tunnel any incoming traffic to the connected peer.
-                    messageComm.setRouter(buffers => peerMessageComm.send(buffers), true);
 
                     const message = new MessageEncoder(msgId);
                     message.addBoolean("isServer", isServer);
                     messageComm.sendMessage(message);
+
+                    // Say that we are ready
+                    const regged = getReg(messageComm);
+                    regged.ready.fn();
+
+                    // Wait for peer to be ready
+                    const peerRegged = getReg(peerMessageComm);
+                    await peerRegged.ready.promise;
+
+                    unreg(regged.messageComm);
+
+                    // Setting the messageComm to binary mode also uncorks it
+                    // This will pass incoming data in binary form from this messagecomm to the peer's.
+                    messageComm.setRouter(buffers => peerMessageComm.send(buffers), true);
                 }
                 else {
                     messageComm.close();
@@ -121,7 +138,11 @@ function unreg(messageComm)
  */
 function reg(want, offers, messageComm)
 {
-    registry.push( {want, offers, messageComm} );
+    const ready = {};
+    ready.promise = new Promise( accept => {
+        ready.fn = accept;
+    });
+    registry.push( {want, offers, messageComm, ready} );
 }
 
 /**
@@ -154,9 +175,10 @@ function getReg(messageComm)
 /**
  * Consume match
  * @param {MessageComm} messageComm
+ * @param {Boolean} forceServer
  * @return {Array<Object | boolean | null>}
  */
-function consumeMatch(messageComm)
+function consumeMatch(messageComm, forceServer)
 {
     const regged = getReg(messageComm);
 
@@ -166,7 +188,6 @@ function consumeMatch(messageComm)
 
     if (regged.peerMessageComm) {
         // Peer has already matched us
-        unreg(regged.messageComm);
         return [regged.peerMessageComm, regged.isServer];
     }
 
@@ -189,13 +210,14 @@ function consumeMatch(messageComm)
         if (regged2.offers.indexOf(regged.want) > -1) {
             // Now check if the reverse is also true.
             if (!regged2.want || regged.offers.indexOf(regged2.want) > -1) {
-                unreg(messageComm);
                 regged2.peerMessageComm = messageComm;
 
-                // We put this messageComm as client because we know it has a "want".
+                // As default we put this messageComm as client because we know it has a "want".
                 // It will only matter if one of the other side has multiple offers.
-                regged2.isServer = true;
-                return [regged2.messageComm, false];
+                // If forceServer is set then this part is set to server instead of client.
+                const isServer = forceServer ? true : false;
+                regged2.isServer = !isServer;
+                return [regged2.messageComm, isServer];
             }
         }
     }
@@ -210,23 +232,23 @@ function consumeMatch(messageComm)
  *
  * @return {Array<Object | boolean | null>}
  */
-async function waitForMatch(want, offer, messageComm)
+async function waitForMatch(want, offer, messageComm, forceServer)
 {
     reg(want, offer, messageComm);
 
     let peerMessageComm = null;
     let isServer = null;
-    // Wait for peer or quit when out own socket disconnects.
+    // Wait for peer or quit when our own socket disconnects.
     while(!peerMessageComm && isRegged(messageComm)) {
         await sleep(333);
-        [peerMessageComm, isServer] = consumeMatch(messageComm);
+        [peerMessageComm, isServer] = consumeMatch(messageComm, forceServer);
     }
 
     return [peerMessageComm, isServer];
 }
 
 /**
- * Sleepe helper function
+ * Sleep helper function
  * @param {number} ms - time to sleep
  * @return {Promise}
  */
@@ -246,28 +268,37 @@ async function sleep(ms)
  * @param {string} want
  * @param {string[]} offer
  * @param {MessageComm} messageComm
- * @return {Array<bool> | null}
+ * @param {Boolean} forceServer set to true to require that this client becomes server upon handshake
+ * @return {Boolean | null} true if server, false if client, null on error.
  * @throws Error will be thrown when any of the arguments are missing or invalid.
  *
  */
-async function HubClient(want, offer, messageComm)
+async function HubClient(want, offer, messageComm, forceServer)
 {
+    if (!messageComm) {
+        throw "Expecting MessageComm";
+    }
+
     // Send want and offer
     const message = new MessageEncoder("match");
     message.addString("want", want);
     message.addArray("offer", offer);
+    message.addBoolean("forceServer", forceServer);
 
-    if (!messageComm) {
-        throw "Expecting MessageComm";
-    }
     const asyncRet = await messageComm.sendMessage(message, true, 0);
     // Await Instructions of being server or client.
     if (asyncRet.isSuccess()) {
         const props = asyncRet.getProps();
         const isServer = props.isServer;
-        return [isServer];
+
+        if (!isServer && forceServer) {
+            throw "forceServer was set to true but the Hub designated us the client role, aborting.";
+        }
+
+        return isServer;
     }
     else {
+        logger.debug("HubServer returned error:", asyncRet.errorMessage());
         return null;
     }
 }
