@@ -181,9 +181,13 @@ class AbstractAgent
      *                   // When connecting via a hub the peers match via the hash of (protocolType, peerPubKey, sharedSecret).
      *                   // If a third party is aware of a peer public key and the protocol it is connecting with and which hub it is connecting via,
      *                   // it could interfere with the connection by posing as one of the peers which will result in peer's not finding each other as they should.
-     *                   // An interferer could not connect as a peer, only interfere with peer's successfully connecting to each other.
+     *                   // An interferer could not connect as a peer, only interfere with peers successfully connecting to each other.
      *                   // The sharedSecret can be used to mitigate such annoyances.
-     *                   sharedSecret: <string | null>
+     *                   sharedSecret: <string | null>,
+     *
+     *                   // Set to true to always handshake as server when connecting via a hub.
+     *                   // This means that this side will after handshake get instantiated using _serverConnected.
+     *                   forceServer: <boolean | null>,
      *               }
      *           },
      *
@@ -706,47 +710,49 @@ class AbstractAgent
                         let handshakeAsClient;
                         let handshakeSuccessful = false;
                         let sharedParams, innerEncrypt, encKeyPair, encPeerPublicKey;
+                        let forceServer;
                         if (client.connect.hub && typeof client.connect.hub === "object") {
                             const want  = Hash.hash2([this.constructor.GetType(client), client.serverPubKey, client.connect.hub.sharedSecret || ""], "hex");
                             const offer = Hash.hash2([this.constructor.GetType(client), client.keyPair.pub, client.connect.hub.sharedSecret || ""], "hex");
-                            const result = await HubClient(want, [offer], messageComm);
-                            if (result) {
-                                const [isServer] = result;
-                                if (isServer) {
-                                    // It fell upon this client to act as a server when connecting peer to peer.
-                                    // Gotta transform the client params to server params
-                                    handshakeAsClient = false;
-                                    const server = {
-                                        keyPair: client.keyPair,
-                                        accept: [
-                                            {
-                                                clientPubKey:   client.serverPubKey,
-                                                name:           client.name,
-                                                innerEncrypt:   client.innerEncrypt,
-                                                params: [
-                                                    this.constructor.ClientParamsIntoServer(client.params)
-                                                ]
-                                            }
-                                        ],
-                                    };
+                            forceServer = Boolean(client.connect.hub.forceServer);
+                            const isServer = await HubClient(want, [offer], messageComm, forceServer);
 
-                                    messageComm.cork();
-                                    const result = await Handshake.AsServer(messageComm, server.keyPair,
-                                        (clientPubKey, serializedClientParams, clientInnerEncrypt) => this.constructor.ServerMatchAccept(clientPubKey, serializedClientParams, server.accept, clientInnerEncrypt));
+                            if (isServer == null) {
+                                throw "Hub error";
+                            }
 
-                                    if (result) {
-                                        // Unused
-                                        let _;
-                                        [_, sharedParams, _, innerEncrypt, encKeyPair, encPeerPublicKey] = result;
-                                        handshakeSuccessful = true;
-                                    }
-                                }
-                                else {
-                                    handshakeAsClient = true;
+                            if (isServer) {
+                                // It fell upon this client to act as a server when connecting peer to peer.
+                                // Gotta transform the client params to server params
+                                handshakeAsClient = false;
+                                const server = {
+                                    keyPair: client.keyPair,
+                                    accept: [
+                                        {
+                                            clientPubKey:   client.serverPubKey,
+                                            name:           client.name,
+                                            innerEncrypt:   client.innerEncrypt,
+                                            params: [
+                                                this.constructor.ClientParamsIntoServer(client.params)
+                                            ]
+                                        }
+                                    ],
+                                };
+
+                                messageComm.cork();
+                                const result = await Handshake.AsServer(messageComm, server.keyPair,
+                                    (clientPubKey, serializedClientParams, clientInnerEncrypt) => this.constructor.ServerMatchAccept(clientPubKey, serializedClientParams, server.accept, clientInnerEncrypt));
+
+                                if (result) {
+                                    // Unused
+                                    let _;
+                                    [_, sharedParams, _, innerEncrypt, encKeyPair, encPeerPublicKey] = result;
+                                    handshakeSuccessful = true;
+                                    this.logger.debug("Handshaked successfully");
                                 }
                             }
                             else {
-                                throw "Hub error";
+                                handshakeAsClient = true;
                             }
                         }
                         else {
@@ -773,8 +779,14 @@ class AbstractAgent
                                 this.logger.info("MessageComm encrypted.");
                             }
 
-                            this._clientConnected(client.keyPair,
-                                client.serverPubKey, client.params, sharedParams, messageComm, client.name);
+                            if (forceServer) {
+                                this._serverConnected(client.keyPair,
+                                    client.serverPubKey, client.params, sharedParams, messageComm, client.name);
+                            }
+                            else {
+                                this._clientConnected(client.keyPair,
+                                    client.serverPubKey, client.params, sharedParams, messageComm, client.name);
+                            }
                         }
                         else {
                             throw "Could not handshake";
