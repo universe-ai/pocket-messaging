@@ -275,15 +275,15 @@ async function sleep(ms)
  */
 async function HubClient(want, offer, messageComm, forceServer)
 {
-    if (!messageComm) {
-        throw "Expecting MessageComm";
-    }
-
     // Send want and offer
     const message = new MessageEncoder("match");
     message.addString("want", want);
     message.addArray("offer", offer);
     message.addBoolean("forceServer", forceServer);
+
+    if (!messageComm) {
+        throw "Expecting MessageComm";
+    }
 
     const asyncRet = await messageComm.sendMessage(message, true, 0);
     // Await Instructions of being server or client.
