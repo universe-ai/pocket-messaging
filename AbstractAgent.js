@@ -257,7 +257,8 @@ class AbstractAgent
                 // server.accept.params will be validated by the impl deriving this class.
             }
             catch(e) {
-                this.logger.error("Server config invalid, ignoring it:", e);
+                const err = typeof e === "object" ? e.stack || e.message || e : e;
+                this.logger.error("Server config invalid, ignoring it:", err);
                 return false;
             }
 
@@ -298,9 +299,13 @@ class AbstractAgent
                 }
                 // Note: connect.{host,port} will be checked by the socket client instance.
                 // client.params will be validated by the impl deriving this class.
+                if (!client.params || typeof client.params !== "object") {
+                    throw "client.params must be an object.";
+                }
             }
             catch(e) {
-                this.logger.error("Client config invalid, ignoring it:", e);
+                const err = typeof e === "object" ? e.stack || e.message || e : e;
+                this.logger.error("Client config invalid, ignoring it:", err);
                 return false;
             }
 
@@ -374,7 +379,7 @@ class AbstractAgent
      */
     static SerializeClientParams(clientParams)
     {
-        throw "Not implemented.";
+        throw "SerializeClientParams not implemented.";
     }
 
     /**
@@ -388,7 +393,7 @@ class AbstractAgent
      */
     static ClientParamsIntoServer(clientParams)
     {
-        throw "Not implemented.";
+        throw "ClientParamsIntoServer not implemented.";
     }
 
     /**
@@ -405,7 +410,7 @@ class AbstractAgent
      */
     static async MatchParams(serializedClientParams, serverParams, clientPubKey)
     {
-        throw "Not implemented.";
+        throw "MatchParams not implemented.";
     }
 
     /**
@@ -416,7 +421,7 @@ class AbstractAgent
      */
     static GetType(client)
     {
-        throw "Not implemented.";
+        throw "GetType not implemented.";
     }
 
     /**
@@ -432,7 +437,7 @@ class AbstractAgent
      */
     async _clientConnected(localKeyPair, remotePubKey, clientParams, sharedParams, messageComm, name)
     {
-        throw "Not implemented.";
+        throw "_clientConnected not implemented.";
     }
 
     /**
@@ -447,7 +452,7 @@ class AbstractAgent
      */
     async _serverConnected(localKeyPair, remotePubKey, curatedServerParams, sharedParams, messageComm, name)
     {
-        throw "Not implemented.";
+        throw "_serverConnected not implemented.";
     }
 
     /**
@@ -567,7 +572,8 @@ class AbstractAgent
             }
         }
         catch(e) {
-            logger.error("Could not match parameters in Agent. Reason: ", (e ? e : "unknown"));
+            const err = typeof e === "object" ? e.stack || e.message || e : e;
+            logger.error("Could not match parameters in Agent. Reason: ", err);
             return null;
         }
 
@@ -629,7 +635,8 @@ class AbstractAgent
                 serverSocket.listen();
             }
             catch(e) {
-                this.logger.error("Error when initiating listener for server: ", e);
+                const err = typeof e === "object" ? e.stack || e.message || e : e;
+                this.logger.error("Error when initiating listener for server: ", err);
                 return;
             }
         });
@@ -774,9 +781,10 @@ class AbstractAgent
                         }
                     }
                     catch (e) {
-                        this.logger.error(e);
+                        const err = typeof e === "object" ? e.stack || e.message || e : e;
+                        this.logger.error("Could not handshake", err);
                         clientSocket.disconnect();
-                        this._connectFailure(client.name, e);
+                        this._connectFailure(client.name, err);
                     }
                 });
 
