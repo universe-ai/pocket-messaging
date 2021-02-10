@@ -518,8 +518,8 @@ class MessageComm
                         // Take part of buffer
                         const buffer2 = buffer.slice(0, remaining);
                         chunks.push(buffer2);
+                        this.incomingBuffers[0] = buffer.slice(buffer2.length);
                         remaining = 0;
-                        this.incomingBuffers[0] = buffer.slice(remaining);
                     }
                 }
                 const chunk = Buffer.concat(chunks);
