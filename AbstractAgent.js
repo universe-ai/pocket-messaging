@@ -187,6 +187,10 @@ class AbstractAgent
      *
      *                   // Set to true to always handshake as server when connecting via a hub.
      *                   // This means that this side will after handshake get instantiated using _serverConnected.
+     *                   // This also means that the agent will always connect a new socket
+     *                   // to the hub when a socket is handshaked, so that there is always one
+     *                   // socket waiting at the hub.
+     *                   // When forceServer is set the "connect.reconnect" flag is ignored.
      *                   forceServer: <boolean | null>,
      *               }
      *           },
@@ -360,6 +364,7 @@ class AbstractAgent
         if (this.isStopped) {
             return;
         }
+
         this.isStopped = true;
 
         // Close all server sockets and in the process also their accepted client sockets.
@@ -657,7 +662,8 @@ class AbstractAgent
 
     _attemptClientConnections()
     {
-        const attemptConnections = Array.prototype.concat(this.config.clients);
+        // Copy array
+        const attemptConnections = this.config.clients.slice();
 
         // Check each second for connections to attempt
         let intervalId;
@@ -668,7 +674,7 @@ class AbstractAgent
             }
 
             while (attemptConnections.length > 0) {
-                let client = attemptConnections.pop();
+                const client = attemptConnections.pop();
 
                 /** @type {AbstractClient} */
                 let clientSocket;
@@ -686,6 +692,12 @@ class AbstractAgent
 
                 this.logger.info(`Connecting to ${client.connect.protocol}://${client.connect.host || "localhost"}:${client.connect.port}`);
 
+                if (client.connect.hub && Boolean(client.connect.hub.forceServer)) {
+                    // Mark this socket as the free hub server socket.
+                    // This is important to know if it closes, then we need to recreate it.
+                    clientSocket.userData.isFreeHubSocket = true;
+                }
+
                 this.clientSockets.push(clientSocket);
 
                 clientSocket.onError( (err) => { // jshint ignore:line
@@ -701,7 +713,21 @@ class AbstractAgent
                     if (index > -1) {
                         this.clientSockets.splice(index, 1);
                     }
-                    if (client.connect.reconnect) {
+                    let reconnect = false;
+                    if (client.connect.hub && Boolean(client.connect.hub.forceServer)) {
+                        // If we are connecting to hub as a server, we always need
+                        // to keep one free socket available at the hub.
+                        // We need to detect here if the clsed socket was the free socket,
+                        // in such case we must reconnect it.
+                        if (clientSocket.userData.isFreeHubSocket) {
+                            reconnect = true;
+                        }
+                    }
+                    else if (client.connect.reconnect) {
+                        reconnect = true;
+                    }
+
+                    if (reconnect) {
                         // Put client back in connect loop, but wait a few seconds...
                         setTimeout( () => attemptConnections.push(client), 5000);
                     }
@@ -720,7 +746,7 @@ class AbstractAgent
                         let handshakeSuccessful = false;
                         let sharedParams, innerEncrypt, encKeyPair, encPeerPublicKey;
                         let forceServer;
-                        if (client.connect.hub && typeof client.connect.hub === "object") {
+                        if (client.connect.hub) {
                             const want  = Hash.hash2([this.constructor.GetType(client), client.serverPubKey, client.connect.hub.sharedSecret || ""], "hex");
                             const offer = Hash.hash2([this.constructor.GetType(client), client.keyPair.pub, client.connect.hub.sharedSecret || ""], "hex");
                             forceServer = Boolean(client.connect.hub.forceServer);
@@ -728,6 +754,13 @@ class AbstractAgent
 
                             if (isServer == null) {
                                 throw "Hub error";
+                            }
+
+                            if (forceServer) {
+                                // This is no longer the free hub socket.
+                                clientSocket.userData.isFreeHubSocket = false;
+                                // Spin off another connection to the hub
+                                attemptConnections.push(client);
                             }
 
                             if (isServer) {
