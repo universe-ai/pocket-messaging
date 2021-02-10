@@ -202,6 +202,7 @@ class AbstractAgent
     constructor(config)
     {
         this.isStopped = false;
+        this.isStarted = false;
 
         /** @type {AgentConfigFormat} */
         if (!config) {
@@ -341,6 +342,11 @@ class AbstractAgent
     // Start the never ending process of connecting and maintaining connections on the Client's behalf.
     start()
     {
+        if (this.isStarted) {
+            return;
+        }
+        this.isStarted = true;
+
         if (this.config.servers) {
             this._setupServerListeners();
         }
@@ -351,6 +357,9 @@ class AbstractAgent
 
     stop()
     {
+        if (this.isStopped) {
+            return;
+        }
         this.isStopped = true;
 
         // Close all server sockets and in the process also their accepted client sockets.
