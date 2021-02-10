@@ -82,6 +82,15 @@ class MessageComm
     }
 
     /**
+     * Return the randomly generated instance ID for this object.
+     * @return {string} HEX characters
+     */
+    getInstanceId()
+    {
+        return this.instanceId;
+    }
+
+    /**
      * Create a message which the peer MessageComm can reply to for system type of actions.
      * The action we support now is the ping-pong.
      */
