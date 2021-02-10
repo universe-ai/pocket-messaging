@@ -44,13 +44,16 @@ function HubServer(servers)
         }
 
 
-        logger.info(`Hub server listening on ${server.listen.port}`);
+        logger.info(`Hub server listening on ${server.listen.protocol}://${server.listen.port}`);
 
         serverSocket.onConnection( async (serverClientSocket) => {
-            logger.info("Client connected on", server.listen.port);
+            logger.info(`Client connected on ${server.listen.protocol}://${server.listen.port}`);
             const messageComm = new MessageComm(serverClientSocket);
 
+            logger.info(`Created new MessageComm with ID ${messageComm.getInstanceId()}`);
+
             const disconnected = () => {
+                logger.info(`MessageComm with ID ${messageComm.getInstanceId()} disconnected prematurely`);
                 unreg(messageComm);
             };
 
@@ -62,19 +65,26 @@ function HubServer(servers)
             // Read incoming message to get want/offer.
             messageComm.setRouter( async (action, msgId, props) => {
                 if (action === "match" ) {
-                    messageComm.cork();
-                    const want = props.want;
-                    const offer = props.offer;
-                    const forceServer = props.forceServer;
+                    const want          = props.want;
+                    const offer         = props.offer;
+                    const forceServer   = Boolean(props.forceServer);
 
-                    const [peerMessageComm, isServer] = await waitForMatch(want, offer, messageComm, forceServer);
+                    const regged = reg(want, offer, forceServer, messageComm);
+
+                    await waitForMatch(messageComm);
+
+                    const peerMessageComm   = regged.peerMessageComm;
+                    const isServer          = regged.isServer;
+
                     if (!peerMessageComm) {
+                        // This happens when our messageComm has disconnected
                         unreg(messageComm);
                         messageComm.close();
                         return;
                     }
                     messageComm.offDisconnect( disconnected );
                     messageComm.onDisconnect( () => {
+                        logger.info(`MessageComm with ID ${messageComm.getInstanceId()} disconnected`);
                         unreg(regged.messageComm);
                         peerMessageComm.close();
                     });
@@ -82,25 +92,39 @@ function HubServer(servers)
                     // Set back to default limit.
                     messageComm.setBufferSize();
 
+                    // Cork it up so that incoming data after the sendMessage below is kept in buffer until
+                    // the peer is ready to receive it.
+                    messageComm.cork();
+
                     const message = new MessageEncoder(msgId);
                     message.addBoolean("isServer", isServer);
                     messageComm.sendMessage(message);
 
+                    const peerRegged = getReg(peerMessageComm);
+                    if (!peerRegged) {
+                        logger.info(`MessageComm with ID ${messageComm.getInstanceId()} peer ${peerMessageComm.getInstanceId()} disconnected, aborting`);
+                        unreg(regged.messageComm);
+                        peerMessageComm.close();
+                        return;
+                    }
+
+                    logger.info(`MessageComm with ID ${messageComm.getInstanceId()} is ready waiting for peer ${peerMessageComm.getInstanceId()}`);
                     // Say that we are ready
-                    const regged = getReg(messageComm);
                     regged.ready.fn();
 
                     // Wait for peer to be ready
-                    const peerRegged = getReg(peerMessageComm);
                     await peerRegged.ready.promise;
 
                     unreg(regged.messageComm);
 
+                    logger.info(`MessageComm with ID ${messageComm.getInstanceId()} is now paired with peer ${peerMessageComm.getInstanceId()}`);
                     // Setting the messageComm to binary mode also uncorks it
                     // This will pass incoming data in binary form from this messagecomm to the peer's.
                     messageComm.setRouter(buffers => peerMessageComm.send(buffers), true);
                 }
                 else {
+                    logger.error(`MessageComm with ID ${messageComm.getInstanceId()} received unknown message with action:`);
+                    logger.error(action);
                     messageComm.close();
                 }
             });
@@ -110,7 +134,8 @@ function HubServer(servers)
             serverSocket.listen();
         }
         catch(e) {
-            logger.error("Error when initiating listener for server: ", e);
+            const err = typeof e === "object" ? e.stack || e.message || e : e;
+            logger.error("Error when initiating listener for server: ", err);
         }
     });
 }
@@ -125,6 +150,7 @@ function unreg(messageComm)
     for (index=0; index<registry.length; index++) {
         if (registry[index].messageComm === messageComm) {
             registry.splice(index, 1);
+            logger.info(`Unreg messageComm ${messageComm.getInstanceId()}`);
             break;
         }
     }
@@ -133,16 +159,25 @@ function unreg(messageComm)
 /**
  * Push want/offer to registry
  * @param {string} want
- * @param {Array} offers
+ * @param {Array} offer
+ * @param {boolean} forceServer
  * @param {MessageComm} messageComm
+ * @return {object} reg object
  */
-function reg(want, offers, messageComm)
+function reg(want, offer, forceServer, messageComm)
 {
     const ready = {};
     ready.promise = new Promise( accept => {
         ready.fn = accept;
     });
-    registry.push( {want, offers, messageComm, ready} );
+
+    logger.info(`Reg messageComm ${messageComm.getInstanceId()}, forceServer: ${forceServer}`, want, offer);
+
+    const regged = {want, offer, forceServer, messageComm, ready};
+
+    registry.push(regged);
+
+    return regged;
 }
 
 /**
@@ -164,8 +199,9 @@ function getReg(messageComm)
 {
     let index;
     for (index=0; index<registry.length; index++) {
-        if (registry[index].messageComm === messageComm) {
-            return registry[index];
+        const regged = registry[index];
+        if (regged.messageComm === messageComm) {
+            return regged;
         }
     }
 
@@ -175,76 +211,77 @@ function getReg(messageComm)
 /**
  * Consume match
  * @param {MessageComm} messageComm
- * @param {Boolean} forceServer
- * @return {Array<Object | boolean | null>}
+ * @return {boolean} true when match found or can never be found, false if to try again.
  */
-function consumeMatch(messageComm, forceServer)
+function consumeMatch(messageComm)
 {
     const regged = getReg(messageComm);
 
     if (!regged) {
-        return [null, null];
+        // Socket disconnected
+        return true;
     }
 
     if (regged.peerMessageComm) {
-        // Peer has already matched us
-        return [regged.peerMessageComm, regged.isServer];
+        // Peer has already matched with us
+        return true;
     }
 
     if (!regged.want) {
-        // We need to wait for a peer to match against us, since we have no want.
-        return [null, null];
+        // This side has no "want" (it's a server with offers only).
+        // We need to wait for a peer to match against us.
+        return false;
     }
 
     let index;
     for (index=0; index<registry.length; index++) {
         const regged2 = registry[index];
 
+        if (regged2.peerMessageComm) {
+            // Already matched
+            continue;
+        }
+
         if (regged2.messageComm === messageComm) {
             // Don't match against our selves
             continue;
         }
 
-
         // Check offers against preferred match of messageComm.
-        if (regged2.offers.indexOf(regged.want) > -1) {
+        if (regged2.offer.indexOf(regged.want) > -1) {
             // Now check if the reverse is also true.
-            if (!regged2.want || regged.offers.indexOf(regged2.want) > -1) {
+            if (!regged2.want || regged.offer.indexOf(regged2.want) > -1) {
+                regged.peerMessageComm  = regged2.messageComm;
                 regged2.peerMessageComm = messageComm;
 
                 // As default we put this messageComm as client because we know it has a "want".
                 // It will only matter if one of the other side has multiple offers.
                 // If forceServer is set then this part is set to server instead of client.
-                const isServer = forceServer ? true : false;
-                regged2.isServer = !isServer;
-                return [regged2.messageComm, isServer];
+                const isServer      = regged.forceServer ? true : false;
+                regged.isServer     = isServer;
+                regged2.isServer    = !isServer;
+                return true;
             }
         }
     }
 
-    return [null, null];
+    // No match found
+    return false;
 }
 
 /**
- * Wait for a matching messageComm to register.
- * When a match is found return the peer's messageComm instance.
- * If our socket disconnected then return null.
+ * Wait for a matching messageComm to register or return if our messageComm disconnects.
  *
- * @return {Array<Object | boolean | null>}
  */
-async function waitForMatch(want, offer, messageComm, forceServer)
+async function waitForMatch(messageComm)
 {
-    reg(want, offer, messageComm);
-
-    let peerMessageComm = null;
-    let isServer = null;
-    // Wait for peer or quit when our own socket disconnects.
-    while(!peerMessageComm && isRegged(messageComm)) {
+    // Wait for peer or quit if our own socket disconnects.
+    while(isRegged(messageComm)) {
         await sleep(333);
-        [peerMessageComm, isServer] = consumeMatch(messageComm, forceServer);
+        if (consumeMatch(messageComm)) {
+            break;
+        }
     }
-
-    return [peerMessageComm, isServer];
 }
 
 /**
@@ -285,14 +322,17 @@ async function HubClient(want, offer, messageComm, forceServer)
         throw "Expecting MessageComm";
     }
 
-    const asyncRet = await messageComm.sendMessage(message, true, 0);
-    // Await Instructions of being server or client.
+    // Send message to Hub, without any timeout.
+    const timeout  = 0;
+    const asyncRet = await messageComm.sendMessage(message, true, timeout);
+
+    // Await Instructions about being server or client.
     if (asyncRet.isSuccess()) {
-        const props = asyncRet.getProps();
-        const isServer = props.isServer;
+        const props     = asyncRet.getProps();
+        const isServer  = props.isServer;
 
         if (!isServer && forceServer) {
-            throw "forceServer was set to true but the Hub designated us the client role, aborting.";
+            throw "forceServer is set to true but the Hub designated us the client role, aborting.";
         }
 
         return isServer;
