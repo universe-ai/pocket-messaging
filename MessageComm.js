@@ -743,7 +743,7 @@ class MessageComm
         }
         catch(e) {
             const err = typeof e === "object" ? e.stack || e.message || e : e;
-            this.logger.error("Error routing message:", err);
+            this.logger.error("Error managing routing message:", err);
         }
     }
 
