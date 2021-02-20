@@ -42,7 +42,7 @@
  * serializedClientParams = this.SerializeClientParams(client.params);
  * match = Handshake.AsClient(messageComm, client.serverPubKey, client.keyPair, serializedClientParams, client.innerEncrypt)
  * [sharedParams, innerEncrypt, encKeyPair, encPeerPublicKey] = match
- * sharedParams is the negotiated params sent to us from server.
+ * sharedParams is the negotiated params sent to us from server, which can be influenced by serializedClientParams.
  * innerEncrypt==1 if inner encryption was desired from either side.
  *  in such case encKeyPair and encPeerPublicKey are passed to the messageComm.
  *

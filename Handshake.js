@@ -170,7 +170,8 @@ async function AsClient(messageComm, serverPubKey, keyPair, parameters, innerEnc
         return [sharedParams, agreedUponInnerEncrypt, encKeyPair, toBuffer(serverEncKey)];
     }
     catch(e) {
-        logger.error(e);
+        const err = typeof e === "object" ? e.stack || e.message || e : e;
+        logger.error("Could not handshake as client", err);
         return null;
     }
 }
@@ -214,7 +215,8 @@ function ReadRandomToken(messageComm)
 
             }
             catch(e) {
-                logger.error(e);
+                const err = typeof e === "object" ? e.stack || e.message || e : e;
+                logger.error("Could not read random token", err);
                 clearTimeout(tId);
                 messageComm.setRouter(null);
                 resolve([null, null]);
@@ -328,7 +330,8 @@ async function AsServer(messageComm, keyPair, ServerMatchAccept)
         return [curatedServerParams, sharedParams, clientPubKey, innerEncryption, encKeyPair, toBuffer(clientEncKey), acceptName];
     }
     catch(e) {
-        logger.error(e);
+        const err = typeof e === "object" ? e.stack || e.message || e : e;
+        logger.error("Server handshake error", err);
         return null;
     }
 }
