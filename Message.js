@@ -224,7 +224,7 @@ class MessageEncoder
 
         messageId = messageId || Hash.generateRandomHex(MESSAGE_ID_LENGTH);
 
-        if (messageId.toLowerCase() !== messageId) {
+        if (!messageId.match(/^[a-z0-9]+$/)) {
             throw "Message ID must be provided as lowercase hexadecimal string.";
         }
 

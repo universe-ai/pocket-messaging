@@ -98,6 +98,7 @@ class AbstractAgent
      *   servers: [
      *       {
      *          // pub, priv keys of the server, ed25519.
+     *          // Must be lowercase.
      *          keyPair: {pub: "", priv: ""}
      *
      *          // Listener socket
@@ -118,6 +119,7 @@ class AbstractAgent
      *                  // this clientPubKey value.
      *                  // If a match is made then we proceed to matching client protocol
      *                  // preferences to the protocols defined below.
+     *                  // Strings must be lowercase.
      *                  clientPubKey: <string | string[] | async Function(clientPubKey):boolean>,
      *
      *                  // Optional arbitrary name, used for onConnect events
@@ -145,13 +147,15 @@ class AbstractAgent
      *   clients: [
      *       {
      *           // The client pub, priv keypair, ed25519.
+     *           // Must be lowercase.
      *           keyPair: {pub: "", priv: ""}
      *
      *           // Optional arbitrary name, used for onConnect events
      *           name: <string | undefined>
      *
      *           // The ed25519 pub key of the server we are expecting to answer.
-     *           serverPubKey: "",
+     *           // Must be lowercase.
+     *           serverPubKey: <string>,
      *
      *           // Have the MessageComm perform encryption on data sent.
      *           // This is useful when regular TLS is not available, or when TLS termination
@@ -229,6 +233,12 @@ class AbstractAgent
                 if (typeof server.keyPair !== "object") {
                     throw "keyPair object must be provided.";
                 }
+                if (typeof server.keyPair.pub !== "string" || server.keyPair.pub.length !== 64 || !server.keyPair.pub.match(/^[a-z0-9]+$/)) {
+                    throw "server.keyPair.pub must be lowercase string ([a-z0-9] 64 bytes.";
+                }
+                if (typeof server.keyPair.priv !== "string" || server.keyPair.priv.length !== 128 || !server.keyPair.priv.match(/^[a-z0-9]+$/)) {
+                    throw "server.keyPair.priv must be lowercase string ([a-z0-9] 128 bytes.";
+                }
                 if (typeof server.listen !== "object") {
                     throw "listen object must be provided.";
                 }
@@ -258,6 +268,19 @@ class AbstractAgent
                         && !Array.isArray(accept.clientPubKey)) {
                         throw "accept.clientPubKey must be string, string[] or function.";
                     }
+                    const keys = [];
+                    if (typeof accept.clientPubKey === "string") {
+                        keys.push(accept.clientPubKey);
+                    }
+                    else if (Array.isArray(accept.clientPubKey)) {
+                        keys.push(...accept.clientPubKey);
+                    }
+                    keys.forEach( key => {
+                        if (key.length !== 64 || !key.match(/^[a-z0-9]+$/)) {
+                            throw "accept.clientPubKey must be lowercase ([a-z0-9] 64 bytes.";
+                        }
+                    });
+
                     if (accept.innerEncrypt != null && accept.innerEncrypt !== 0 && accept.innerEncrypt !== 1) {
                         throw "accept.innerEncrypt must be number 0 or 1 when set.";
                     }
@@ -278,8 +301,17 @@ class AbstractAgent
                 if (typeof client.keyPair !== "object") {
                     throw "keyPair object must be provided.";
                 }
-                if (!client.serverPubKey) {
-                    throw "serverPubKey must be provided.";
+                if (typeof client.keyPair.pub !== "string" || client.keyPair.pub.length !== 64 || !client.keyPair.pub.match(/^[a-z0-9]+$/)) {
+                    throw "client.keyPair.pub must be lowercase string ([a-z0-9] 64 bytes.";
+                }
+                if (typeof client.keyPair.priv !== "string" || client.keyPair.priv.length !== 128 || !client.keyPair.priv.match(/^[a-z0-9]+$/)) {
+                    throw "client.keyPair.priv must be lowercase string ([a-z0-9] 128 bytes.";
+                }
+                if (!client.serverPubKey || typeof client.serverPubKey !== "string") {
+                    throw "serverPubKey must be provided (64 byte lowercase string [a-z0-9])";
+                }
+                if (client.serverPubKey.length !== 64 || !client.serverPubKey.match(/^[a-z0-9]+$/)) {
+                    throw "client.serverPubKey must be lowercase ([a-z0-9] 64 bytes.";
                 }
                 if (client.innerEncrypt != null && client.innerEncrypt !== 0 && client.innerEncrypt !== 1) {
                     throw "innerEncrypt must be number 0 or 1 when if set.";
@@ -531,6 +563,10 @@ class AbstractAgent
         let innerEncryption = clientInnerEncrypt;
 
         try {
+            if (typeof clientPubKey !== "string" || clientPubKey.length !== 64 || !clientPubKey.match(/^[a-z0-9]+$/)) {
+                throw "clientPubKey must be lowercase string ([a-z0-9] 64 bytes.";
+            }
+
             for (let index=0; index<acceptBlocks.length; index++) {
                 /** @type {*} */
                 const accept = acceptBlocks[index];
@@ -538,12 +574,12 @@ class AbstractAgent
                 /** @property {(string | Array<string> | Function)} clientPubKey */
                 const acceptClientPubKey = accept.clientPubKey;
                 if (typeof(acceptClientPubKey) === "string") {
-                    if (acceptClientPubKey.toLowerCase() === clientPubKey.toLowerCase()) {
+                    if (acceptClientPubKey === clientPubKey) {
                         result = true;
                     }
                 }
                 else if (Array.isArray(acceptClientPubKey)) {
-                    if (acceptClientPubKey.some( pubKey => pubKey.toLowerCase() === clientPubKey.toLowerCase() )) {
+                    if (acceptClientPubKey.some( pubKey => pubKey === clientPubKey )) {
                         result = true;
                     }
                 }

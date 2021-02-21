@@ -811,7 +811,7 @@ class MessageComm
      * Data is not decodes as it arrives, because of a corked MessageComm needs to be able to
      * enable encryption on already buffered up data.
      *
-     * @param {Object} keyPair - key pair to be used for encrypting and decrypting data
+     * @param {nacl.box.keyPair()} keyPair - key pair to be used for encrypting and decrypting data
      * @param {Uint8Array} peerPublicKey - peer public key to be used for public-key authenticated encryption
      */
     setEncrypt(keyPair, peerPublicKey)

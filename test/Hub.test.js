@@ -122,6 +122,7 @@ describe("Hub", () => {
             } catch(e) {
                 assert(e == "Expecting string");
                 done();
+                return;
             }
             assert(false);
         });
@@ -132,6 +133,7 @@ describe("Hub", () => {
             } catch(e) {
                 assert(e == "Expecting Array");
                 done();
+                return;
             }
             assert(false);
         });
@@ -142,6 +144,7 @@ describe("Hub", () => {
             } catch(e) {
                 assert(e == "Expecting boolean");
                 done();
+                return;
             }
             assert(false);
         });
@@ -152,6 +155,7 @@ describe("Hub", () => {
             } catch(e) {
                 assert(e == "Expecting MessageComm");
                 done();
+                return;
             }
             assert(false);
         });

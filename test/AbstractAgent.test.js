@@ -27,8 +27,8 @@ const config = {
     "servers": [
         {
             "keyPair": {
-                "pub": "one",
-                "priv": "two"
+                "pub": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "priv": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
             },
             "listen":  {
                 "protocol": "tcp",
@@ -39,7 +39,7 @@ const config = {
             },
             "accept": [
                 {
-                    "clientPubKey": "clientpubkey",
+                    "clientPubKey": "clientpubkeclientpubkeclientpubkeclientpubkeyyyyclientpubkeyabcd",
                     "name": "onConnect-name",
                     "innerEncrypt": 1,
                     "params": [
@@ -54,11 +54,11 @@ const config = {
     "clients": [
         {
             "keyPair": {
-                "pub": "drei",
-                "priv": "vier"
+                "pub": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "priv": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
             },
             "name": "clientName0",
-            "serverPubKey": "serverpubkey",
+            "serverPubKey": "serverpubkeserverpubkeserverpubkeserverpubkeyyyyserverpubkeyabcd",
             "innerEncrypt": 1,
             "connect": {
                 "protocol": "tcp",
@@ -110,15 +110,15 @@ describe("AbstractAgent", () => {
             assert(agent.config.toString() == config.toString());
             assert(Array.isArray(agent.config.servers));
             assert(agent.config.servers.length == 1);
-            assert(agent.config.servers[0].keyPair.pub == "one");
-            assert(agent.config.servers[0].keyPair.priv == "two");
+            assert(agent.config.servers[0].keyPair.pub == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+            assert(agent.config.servers[0].keyPair.priv == "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
             assert(agent.config.servers[0].listen.protocol == "tcp");
             assert(agent.config.servers[0].listen.host == "localhost");
             assert(agent.config.servers[0].listen.port == 8080);
             assert(agent.config.servers[0].listen.cert == "self-signed-cert");
             assert(agent.config.servers[0].listen.key == "self-signed-key");
             assert(Array.isArray(agent.config.servers[0].accept));
-            assert(agent.config.servers[0].accept[0].clientPubKey == "clientpubkey");
+            assert(agent.config.servers[0].accept[0].clientPubKey == "clientpubkeclientpubkeclientpubkeclientpubkeyyyyclientpubkeyabcd");
             assert(agent.config.servers[0].accept[0].name == "onConnect-name");
             assert(agent.config.servers[0].accept[0].innerEncrypt == 1);
             assert(Array.isArray(agent.config.servers[0].accept[0].params));
@@ -126,10 +126,10 @@ describe("AbstractAgent", () => {
 
             assert(Array.isArray(agent.config.clients));
             assert(agent.config.clients.length == 1);
-            assert(agent.config.clients[0].keyPair.pub == "drei");
-            assert(agent.config.clients[0].keyPair.priv == "vier");
+            assert(agent.config.clients[0].keyPair.pub == "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
+            assert(agent.config.clients[0].keyPair.priv == "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd");
             assert(agent.config.clients[0].name == "clientName0");
-            assert(agent.config.clients[0].serverPubKey == "serverpubkey");
+            assert(agent.config.clients[0].serverPubKey == "serverpubkeserverpubkeserverpubkeserverpubkeyyyyserverpubkeyabcd");
             assert(agent.config.clients[0].innerEncrypt == 1);
             assert(agent.config.clients[0].connect.protocol == "tcp");
             assert(agent.config.clients[0].connect.reconnect == true);
@@ -369,7 +369,7 @@ describe("AbstractAgent", () => {
 						},
 						"accept": [
 							{
-								"clientPubKey": ["clientpubkey"],
+                                "clientPubKey": ["clientpubkeclientpubkeclientpubkeclientpubkeyyyyclientpubkeyabcd"],
 								"name": "onConnect-name",
 								"innerEncrypt": 1,
 								"params": [
@@ -405,8 +405,8 @@ describe("AbstractAgent", () => {
 				"servers": [
 					{
 						"keyPair": {
-							"pub": "one",
-							"priv": "two"
+                            "pub": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                            "priv": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 						},
 						"listen":  {
 							"protocol": "tcp",
@@ -417,7 +417,7 @@ describe("AbstractAgent", () => {
 						},
 						"accept": [
 							{
-								"clientPubKey": function() { return "clientpubkey"; },
+                                "clientPubKey": function() { return "clientpubkeclientpubkeclientpubkeclientpubkeyyyyclientpubkeyabcd"; },
 								"name": "onConnect-name",
 								"innerEncrypt": 1,
 								"params": [
