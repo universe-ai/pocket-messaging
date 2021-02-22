@@ -1,9 +1,23 @@
 {
-  "name": "pocket-messaging",
+  "name": "@universe-ai/pocket-messaging",
+  "version": "1.0.0",
   "devDependencies": {
     "jest": "^26.6.3"
   },
   "scripts": {
     "test": "jest --silent --color --collectCoverageFrom=./*.js --coverageProvider=v8 --detectOpenHandles=true --errorOnDeprecated=true --verbose --collectCoverage ./test/. "
-  }
+  },
+  "description": "Don't just JSON.stringify and send your data, use pocket-messaging to pack and send it to a trusted peer.",
+  "keywords": [],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/universe-ai/pocket-messaging.git"
+  },
+  "author": "Universe.ai <devnull@universe.ai>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/universe-ai/pocket-messaging/issues"
+  },
+  "homepage": "https://github.com/universe-ai/pocket-messaging#readme",
+  "private": false
 }
