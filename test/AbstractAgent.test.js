@@ -27,8 +27,8 @@ const config = {
     "servers": [
         {
             "keyPair": {
-                "pub": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "priv": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                "publicKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "secretKey": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
             },
             "listen":  {
                 "protocol": "tcp",
@@ -54,8 +54,8 @@ const config = {
     "clients": [
         {
             "keyPair": {
-                "pub": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-                "priv": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+                "publicKey": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "secretKey": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
             },
             "name": "clientName0",
             "serverPubKey": "serverpubkeserverpubkeserverpubkeserverpubkeyyyyserverpubkeyabcd",
@@ -110,8 +110,8 @@ describe("AbstractAgent", () => {
             assert(agent.config.toString() == config.toString());
             assert(Array.isArray(agent.config.servers));
             assert(agent.config.servers.length == 1);
-            assert(agent.config.servers[0].keyPair.pub == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-            assert(agent.config.servers[0].keyPair.priv == "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+            assert(agent.config.servers[0].keyPair.publicKey == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+            assert(agent.config.servers[0].keyPair.secretKey == "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
             assert(agent.config.servers[0].listen.protocol == "tcp");
             assert(agent.config.servers[0].listen.host == "localhost");
             assert(agent.config.servers[0].listen.port == 8080);
@@ -126,8 +126,8 @@ describe("AbstractAgent", () => {
 
             assert(Array.isArray(agent.config.clients));
             assert(agent.config.clients.length == 1);
-            assert(agent.config.clients[0].keyPair.pub == "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
-            assert(agent.config.clients[0].keyPair.priv == "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd");
+            assert(agent.config.clients[0].keyPair.publicKey == "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
+            assert(agent.config.clients[0].keyPair.secretKey == "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd");
             assert(agent.config.clients[0].name == "clientName0");
             assert(agent.config.clients[0].serverPubKey == "serverpubkeserverpubkeserverpubkeserverpubkeyyyyserverpubkeyabcd");
             assert(agent.config.clients[0].innerEncrypt == 1);
@@ -357,8 +357,8 @@ describe("AbstractAgent", () => {
                 "servers": [
                     {
                         "keyPair": {
-                            "pub": "one",
-                            "priv": "two"
+                            "publicKey": "one",
+                            "secretKey": "two"
                         },
                         "listen":  {
                             "protocol": "tcp",
@@ -405,8 +405,8 @@ describe("AbstractAgent", () => {
                 "servers": [
                     {
                         "keyPair": {
-                            "pub": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                            "priv": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                            "publicKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                            "secretKey": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
                         },
                         "listen":  {
                             "protocol": "tcp",

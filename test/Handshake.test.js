@@ -59,17 +59,17 @@ function handshake(client, server, messageCommC, messageCommS, serverKeyMismatch
 async function main(messageCommC, messageCommS, serverKeyMismatch=false)
 {
     const clientKey = {
-        pub: '20ba0b643b67e6ef9c438ae38b19e91d94307998f8928e4bf24ac80b7ac64e90',
-        priv: 'a9e53a52f8856f4921bb69fd6ed76f2f989c5311f56e36b77d8cf5c75f0ddd2e20ba0b643b67e6ef9c438ae38b19e91d94307998f8928e4bf24ac80b7ac64e90'
+        publicKey: '20ba0b643b67e6ef9c438ae38b19e91d94307998f8928e4bf24ac80b7ac64e90',
+        secretKey: 'a9e53a52f8856f4921bb69fd6ed76f2f989c5311f56e36b77d8cf5c75f0ddd2e20ba0b643b67e6ef9c438ae38b19e91d94307998f8928e4bf24ac80b7ac64e90'
     };
 
     const serverKey = {
-        pub: 'eacf781c522fb556880bab0c0f17181acf5b2c2e79bc3708261e7e7d38dde350',
-        priv: '6cac1d28846ed5edcc6cc4b408883752afa82c6284ba1adf717f6d4f6e13142feacf781c522fb556880bab0c0f17181acf5b2c2e79bc3708261e7e7d38dde350'
+        publicKey: 'eacf781c522fb556880bab0c0f17181acf5b2c2e79bc3708261e7e7d38dde350',
+        secretKey: '6cac1d28846ed5edcc6cc4b408883752afa82c6284ba1adf717f6d4f6e13142feacf781c522fb556880bab0c0f17181acf5b2c2e79bc3708261e7e7d38dde350'
     };
 
     const client = {
-        serverPubKey: serverKey.pub,
+        serverPubKey: serverKey.publicKey,
         keyPair: clientKey,
         innerEncrypt: 0,
         params: {
@@ -85,7 +85,7 @@ async function main(messageCommC, messageCommS, serverKeyMismatch=false)
         keyPair: serverKey,
         accept: [
             {
-                clientPubKey: ["nokey", clientKey.pub],
+                clientPubKey: ["nokey", clientKey.publicKey],
                 name: "my server",
                 innerEncrypt: 0,
                 params: [

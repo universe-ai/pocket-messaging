@@ -137,7 +137,7 @@ async function AsClient(messageComm, serverPubKey, keyPair, parameters, innerEnc
 
         // Generate encryption keypair.
         const encKeyPair        = nacl.box.keyPair();
-        const clientPubKey      = Crypt.symmetricEncrypt(Buffer.from(keyPair.pub), token);
+        const clientPubKey      = Crypt.symmetricEncrypt(Buffer.from(keyPair.publicKey), token);
         const innerEncrypt      = Crypt.symmetricEncrypt(Buffer.from(String(innerEncryption)), token);
         const signedMessage2    = ed25519.sign(token, keyPair);
         const clientEncKey      = Crypt.symmetricEncrypt(encKeyPair.publicKey, token);

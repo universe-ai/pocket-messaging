@@ -13,7 +13,7 @@
  * matchFn = (clientPubKey, serializedClientParams, clientInnerEncrypt) =>
  *  this.constructor.ServerMatchAccept(clientPubKey, serializedClientParams, server.accept, clientInnerEncrypt)
  *  All three arguments to matchFn comes from the client configurations sent over socket, where:
- *      clientPubKey = client.keyPair.pub,
+ *      clientPubKey = client.keyPair.publicKey,
  *      serializedClientParams = this.SerializeClientParams(client.params);
  *      clientInnerEncrypt = client.innerEncrypt
  *  These arguments are passed on to the ServerMatchAccept function together with the server.accept array,
@@ -82,8 +82,8 @@ const assert = require("assert");
 
 /**
  * @typedef {Object} KeyPair
- * @property {string} priv - private key
- * @property {string} pub - public key
+ * @property {string} secretKey - private key
+ * @property {string} publicKey - public key
  */
 
 class AbstractAgent
@@ -99,7 +99,7 @@ class AbstractAgent
      *       {
      *          // pub, priv keys of the server, ed25519.
      *          // Must be lowercase.
-     *          keyPair: {pub: "", priv: ""}
+     *          keyPair: {publicKey: "", secretKey: ""}
      *
      *          // Listener socket
      *          listen: {
@@ -148,7 +148,7 @@ class AbstractAgent
      *       {
      *           // The client pub, priv keypair, ed25519.
      *           // Must be lowercase.
-     *           keyPair: {pub: "", priv: ""}
+     *           keyPair: {publicKey: "", secretKey: ""}
      *
      *           // Optional arbitrary name, used for onConnect events
      *           name: <string | undefined>
@@ -233,11 +233,11 @@ class AbstractAgent
                 if (typeof server.keyPair !== "object") {
                     throw "keyPair object must be provided.";
                 }
-                if (typeof server.keyPair.pub !== "string" || server.keyPair.pub.length !== 64 || !server.keyPair.pub.match(/^[a-z0-9]+$/)) {
-                    throw "server.keyPair.pub must be lowercase string ([a-z0-9] 64 bytes.";
+                if (typeof server.keyPair.publicKey !== "string" || server.keyPair.publicKey.length !== 64 || !server.keyPair.publicKey.match(/^[a-z0-9]+$/)) {
+                    throw "server.keyPair.publicKey must be lowercase string ([a-z0-9] 64 bytes.";
                 }
-                if (typeof server.keyPair.priv !== "string" || server.keyPair.priv.length !== 128 || !server.keyPair.priv.match(/^[a-z0-9]+$/)) {
-                    throw "server.keyPair.priv must be lowercase string ([a-z0-9] 128 bytes.";
+                if (typeof server.keyPair.secretKey !== "string" || server.keyPair.secretKey.length !== 128 || !server.keyPair.secretKey.match(/^[a-z0-9]+$/)) {
+                    throw "server.keyPair.secretKey must be lowercase string ([a-z0-9] 128 bytes.";
                 }
                 if (typeof server.listen !== "object") {
                     throw "listen object must be provided.";
@@ -301,11 +301,11 @@ class AbstractAgent
                 if (typeof client.keyPair !== "object") {
                     throw "keyPair object must be provided.";
                 }
-                if (typeof client.keyPair.pub !== "string" || client.keyPair.pub.length !== 64 || !client.keyPair.pub.match(/^[a-z0-9]+$/)) {
-                    throw "client.keyPair.pub must be lowercase string ([a-z0-9] 64 bytes.";
+                if (typeof client.keyPair.publicKey !== "string" || client.keyPair.publicKey.length !== 64 || !client.keyPair.publicKey.match(/^[a-z0-9]+$/)) {
+                    throw "client.keyPair.publicKey must be lowercase string ([a-z0-9] 64 bytes.";
                 }
-                if (typeof client.keyPair.priv !== "string" || client.keyPair.priv.length !== 128 || !client.keyPair.priv.match(/^[a-z0-9]+$/)) {
-                    throw "client.keyPair.priv must be lowercase string ([a-z0-9] 128 bytes.";
+                if (typeof client.keyPair.secretKey !== "string" || client.keyPair.secretKey.length !== 128 || !client.keyPair.secretKey.match(/^[a-z0-9]+$/)) {
+                    throw "client.keyPair.secretKey must be lowercase string ([a-z0-9] 128 bytes.";
                 }
                 if (!client.serverPubKey || typeof client.serverPubKey !== "string") {
                     throw "serverPubKey must be provided (64 byte lowercase string [a-z0-9])";
@@ -784,7 +784,7 @@ class AbstractAgent
                         let forceServer;
                         if (client.connect.hub) {
                             const want  = Hash.hash2([this.constructor.GetType(client), client.serverPubKey, client.connect.hub.sharedSecret || ""], "hex");
-                            const offer = Hash.hash2([this.constructor.GetType(client), client.keyPair.pub, client.connect.hub.sharedSecret || ""], "hex");
+                            const offer = Hash.hash2([this.constructor.GetType(client), client.keyPair.publicKey, client.connect.hub.sharedSecret || ""], "hex");
                             forceServer = Boolean(client.connect.hub.forceServer);
                             const isServer = await HubClient(want, [offer], messageComm, forceServer);
 
