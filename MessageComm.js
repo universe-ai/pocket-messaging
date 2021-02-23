@@ -3,8 +3,8 @@ const {MessageDecoder} = require("./Message");
 const {MessageEncoder} = require("./Message");
 const assert = require("assert");
 const nacl = require("tweetnacl");
-const Logger = require("../logger/Logger");
-const Hash = require("../util/hash");
+const {Logger} = require("@universe-ai/util");
+const {Hash} = require("@universe-ai/util");
 
 class MessageComm
 {

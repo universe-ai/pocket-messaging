@@ -66,13 +66,13 @@
  *     sharedParams     = symDecrypt(sharedParams, token)
  */
 
-const ed25519 = require("../util/ed25519");
-const Hash = require("../util/hash");
-const Crypt = require("../util/crypt");
+const {ed25519} = require("@universe-ai/util");
+const {Hash} = require("@universe-ai/util");
+const {Crypt} = require("@universe-ai/util");
 const {MessageEncoder} = require("./Message");
 const nacl = require("tweetnacl");
 const assert = require("assert");
-const Logger = require("../logger/Logger");
+const {Logger} = require("@universe-ai/util");
 
 const loggerId = `Handshake`;
 const logger = Logger(loggerId, ( (process ? process.env : window) || {} ).LOG_LEVEL );

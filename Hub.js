@@ -1,8 +1,8 @@
-const WSServer = require("../pocket-sockets/WSServer");
-const TCPServer = require("../pocket-sockets/TCPServer");
+const {WSServer} = require("@universe-ai/pocket-sockets");
+const {TCPServer} = require("@universe-ai/pocket-sockets");
 const MessageComm = require("./MessageComm");
 const {MessageEncoder} = require("./Message");
-const Logger = require("../logger/Logger");
+const {Logger} = require("@universe-ai/util");
 
 const loggerId = `Hub`;
 const logger = Logger(loggerId, ( (process ? process.env : window) || {} ).LOG_LEVEL );

@@ -34,12 +34,12 @@
  * Hash utility is required to generate crytographically strong pseudo-random strings
  * @requires ../util/hash
  */
-const Hash = require("../util/hash");
+const {Hash} = require("@universe-ai/util");
 
 // Native NodeJS dependencies
 const assert = require("assert");
 
-const Logger = require("../logger/Logger");
+const {Logger} = require("@universe-ai/util");
 
 /**
  * Maximum message size in bytes.

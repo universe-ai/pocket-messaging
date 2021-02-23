@@ -72,12 +72,12 @@ let WSServer;
 let TCPClient;
 let TCPServer;
 
-const WSClient = require("../pocket-sockets/WSClient");
+const {WSClient} = require("@universe-ai/pocket-sockets");
 const Handshake = require("./Handshake");
 const MessageComm = require("./MessageComm");
-const Hash = require("../util/hash");
+const {Hash} = require("@universe-ai/util");
 const {HubClient} = require("./Hub");
-const Logger = require("../logger/Logger");
+const {Logger} = require("@universe-ai/util");
 const assert = require("assert");
 
 /**
@@ -354,15 +354,15 @@ class AbstractAgent
         });
 
         if (includeTCPServer) {
-            TCPServer = require("../pocket-sockets/TCPServer");
+            TCPServer = require("@universe-ai/pocket-sockets").TCPServer;
         }
 
         if (includeTCPClient) {
-            TCPClient = require("../pocket-sockets/TCPClient");
+            TCPClient = require("@universe-ai/pocket-sockets").TCPClient;
         }
 
         if (includeWSServer) {
-            WSServer = require("../pocket-sockets/WSServer");
+            WSServer = require("@universe-ai/pocket-sockets").WSServer;
         }
 
         /** @type {Array<TCPServer | WSServer>} */
