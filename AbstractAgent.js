@@ -106,8 +106,11 @@ class AbstractAgent
      *              protocol: "tcp" | "websocket",
      *              host: "localhost",
      *              port: 8080,
-     *              cert: // see AbstractServer for details
-     *              key:  ^
+     *              cert:, // see AbstractServer for details
+     *              key:,  // see AbstractServer for details
+     *              ca:,  // see AbstractServer for details
+     *              requestCert:, // see AbstractServer for details
+     *              rejectUnauthorized,  // see AbstractServer for details
      *          },
      *
      *          // Accept blocks for handshaking a newly connected client socket.
