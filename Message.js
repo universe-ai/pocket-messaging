@@ -846,25 +846,25 @@ class MessageDecoder
                     object = buffer.toString("utf8");
                 }
                 else if (type === TYPE_BOOLEAN) {
-                    object = buffer.readUInt8() === 0 ? false : true;
+                    object = buffer.readUInt8(0) === 0 ? false : true;
                 }
                 else if (type === TYPE_INT8) {
-                    object = buffer.readInt8();
+                    object = buffer.readInt8(0);
                 }
                 else if (type === TYPE_UINT8) {
-                    object = buffer.readUInt8();
+                    object = buffer.readUInt8(0);
                 }
                 else if (type === TYPE_INT16) {
-                    object = buffer.readInt16LE();
+                    object = buffer.readInt16LE(0);
                 }
                 else if (type === TYPE_UINT16) {
-                    object = buffer.readUInt16LE();
+                    object = buffer.readUInt16LE(0);
                 }
                 else if (type === TYPE_INT32) {
-                    object = buffer.readInt32LE();
+                    object = buffer.readInt32LE(0);
                 }
                 else if (type === TYPE_UINT32) {
-                    object = buffer.readUInt32LE();
+                    object = buffer.readUInt32LE(0);
                 }
                 else if (type === TYPE_NULL) {
                     object = null;
@@ -987,13 +987,13 @@ class MessageDecoder
             return null;
         }
 
-        const objectType = buffer.readUInt8();
+        const objectType = buffer.readUInt8(0);
         let pos = 1;
 
-        const keyLength = buffer.slice(pos, pos + 1).readUInt8();
+        const keyLength = buffer.slice(pos, pos + 1).readUInt8(0);
         pos = pos + 1;
 
-        const objectLength = buffer.slice(pos, pos + 2).readUInt16LE();
+        const objectLength = buffer.slice(pos, pos + 2).readUInt16LE(0);
         pos = pos + 2;
 
         assert(pos == OBJECT_FRAME_LENGTH, "Expecting pos manipulation to match object frame length");
@@ -1024,8 +1024,8 @@ class MessageDecoder
         if (!buffer) {
             return false;
         }
-        const keyLength = buffer.slice(1, 2).readUInt8();
-        const objectLength = buffer.slice(2, 4).readUInt16LE();
+        const keyLength = buffer.slice(1, 2).readUInt8(0);
+        const objectLength = buffer.slice(2, 4).readUInt16LE(0);
         const diff = this._getRemainingLength() - (keyLength + objectLength + OBJECT_FRAME_LENGTH);
         return diff >= 0;
     }

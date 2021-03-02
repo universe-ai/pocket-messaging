@@ -507,7 +507,7 @@ class MessageComm
                 }
                 let count = 0;
                 this.incomingBuffers.forEach( buffer => count = count + buffer.length );
-                const l = buffer.readUInt32LE();
+                const l = buffer.readUInt32LE(0);
                 if (l > count) {
                     // Not enough data available.
                     return false;
