@@ -21,7 +21,7 @@
   "homepage": "https://github.com/universe-ai/pocket-messaging#readme",
   "private": false,
   "dependencies": {
-    "@universe-ai/pocket-sockets": "^1.0.1",
+    "@universe-ai/pocket-sockets": "^1.1.0",
     "@universe-ai/util": "^1.1.0"
   }
 }

@@ -571,10 +571,10 @@
   dependencies:
     "@types/yargs-parser" "*"
 
-"@universe-ai/pocket-sockets@^1.0.1":
-  version "1.0.1"
-  resolved "https://registry.yarnpkg.com/@universe-ai/pocket-sockets/-/pocket-sockets-1.0.1.tgz#4e54e3bacfc7aded075cc0d58ad221317973cb54"
-  integrity sha512-3Kcckb4rY5CDi54qnqnxeKQIRQGj8CBgVvPJnDN5+JlFijeYxDp0bGM45L0NSl2iFkRnqFI6s2RB8hAYjPFR0Q==
+"@universe-ai/pocket-sockets@^1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@universe-ai/pocket-sockets/-/pocket-sockets-1.1.0.tgz#6f895b6a3e0f1fde95ac12ea9f6c01e8dd2faf80"
+  integrity sha512-V+mrf/0FnHze4MYVHpOn5cppAb6T02mHmYJNMU2TLnUksLBm4HCsfjazxaNWGuSmh7zg+1LXxZNpzuDlcwrafw==
   dependencies:
     ws "^7.3.1"
 
