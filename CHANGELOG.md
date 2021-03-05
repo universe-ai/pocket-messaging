@@ -1,5 +1,8 @@
 # CHANGELOG: pocket-messaging
 
+## [1.0.4] - 20210305
+Update pocket-sockets version to 1.1.0.
+
 ## [1.0.3] - 20210302
 Set explicit offset argument to readUInt and readInt calls for browser compatibility.
 
