@@ -312,15 +312,16 @@ async function sleep(ms)
  */
 async function HubClient(want, offer, messageComm, forceServer)
 {
+    // Early quit when missing requirement
+    if (!messageComm) {
+        throw "Expecting MessageComm";
+    }
+
     // Send want and offer
     const message = new MessageEncoder("match");
     message.addString("want", want);
     message.addArray("offer", offer);
     message.addBoolean("forceServer", forceServer);
-
-    if (!messageComm) {
-        throw "Expecting MessageComm";
-    }
 
     // Send message to Hub, without any timeout.
     const timeout  = 0;

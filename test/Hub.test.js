@@ -120,7 +120,7 @@ describe("Hub", () => {
             try {
                 await Hub.HubClient();
             } catch(e) {
-                assert(e == "Expecting string");
+                assert(e == "Expecting MessageComm");
                 done();
                 return;
             }
@@ -131,7 +131,7 @@ describe("Hub", () => {
             try {
                 await Hub.HubClient("wantdata");
             } catch(e) {
-                assert(e == "Expecting Array");
+                assert(e == "Expecting MessageComm");
                 done();
                 return;
             }
@@ -142,7 +142,7 @@ describe("Hub", () => {
             try {
                 await Hub.HubClient("wantdata", [], null, 1);
             } catch(e) {
-                assert(e == "Expecting boolean");
+                assert(e == "Expecting MessageComm");
                 done();
                 return;
             }
